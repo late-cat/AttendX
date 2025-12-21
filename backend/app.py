@@ -10,19 +10,36 @@ import pandas as pd
 from datetime import datetime
 import time
 
-# Ensure we can import from 'vision'
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Fix imports for deployment - add parent directory to path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.insert(0, parent_dir)
+sys.path.insert(0, current_dir)
 
-from vision.recognizer import recognize_face, ATTENDANCE_FILE
-from vision.embedding_utils import generate_embeddings_for_person
-from config.firebase_admin import (
-    initialize_firebase,
-    upload_student_images,
-    upload_embedding,
-    download_all_embeddings,
-    sync_embeddings_to_firebase,
-    get_storage_usage
-)
+# Import from backend subdirectories
+try:
+    from backend.vision.recognizer import recognize_face, ATTENDANCE_FILE
+    from backend.vision.embedding_utils import generate_embeddings_for_person
+    from backend.config.firebase_admin import (
+        initialize_firebase,
+        upload_student_images,
+        upload_embedding,
+        download_all_embeddings,
+        sync_embeddings_to_firebase,
+        get_storage_usage
+    )
+except ImportError:
+    # Fallback for local development
+    from vision.recognizer import recognize_face, ATTENDANCE_FILE
+    from vision.embedding_utils import generate_embeddings_for_person
+    from config.firebase_admin import (
+        initialize_firebase,
+        upload_student_images,
+        upload_embedding,
+        download_all_embeddings,
+        sync_embeddings_to_firebase,
+        get_storage_usage
+    )
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -30,16 +47,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Enable CORS for both local development and production
-# Set FRONTEND_URL environment variable in production
-allowed_origins = os.getenv("FRONTEND_URL", "http://localhost:3000").split(",")
-# Always include localhost for development
-if "http://localhost:3000" not in allowed_origins:
-    allowed_origins.append("http://localhost:3000")
-
+# Enable CORS for Next.js (port 3000)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
