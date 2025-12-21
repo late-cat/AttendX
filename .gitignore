@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+env/
+venv/
+ENV/
+
+# Node
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+backend/temp_uploads/*
+!backend/temp_uploads/.gitkeep
+
+# Secrets - NEVER commit these!
+backend/config/serviceAccountKey.json
+*.pem
+*.key
+.env
+.env.local
+
+# Data (optional - you might want to commit sample data)
+data/embeddings/*.npy
+data/attendance.csv
+
+# Logs
+*.log
+logs/
