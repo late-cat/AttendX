@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { useRouter } from 'next/navigation';
 import WebcamCapture from '@/components/WebcamCapture';
+import API_BASE_URL from '@/lib/api';
 
 // --- ICONS (Using Emojis for simplicity/hackathon speed) ---
 const TABS = [
@@ -43,8 +44,8 @@ export default function Home() {
     try {
       // 1. Fetch System Status & Stats
       try {
-        const resStatus = await fetch('http://localhost:8000/system/status');
-        const resStats = await fetch('http://localhost:8000/stats');
+        const resStatus = await fetch(`${API_BASE_URL}/system/status`);
+        const resStats = await fetch(`${API_BASE_URL}/stats`);
         if (resStatus.ok) {
           setStats(prev => ({ ...prev, system_status: 'Online 🟢' }));
           if (resStats.ok) {
@@ -57,14 +58,14 @@ export default function Home() {
       } catch { setStats(prev => ({ ...prev, system_status: 'Offline 🔴' })); }
 
       // 2. Fetch Today's Data
-      const resToday = await fetch('http://localhost:8000/attendance/today');
+      const resToday = await fetch(`${API_BASE_URL}/attendance/today`);
       const dataToday = await resToday.json();
       setTodayLogs(dataToday.logs || []);
       setStats(prev => ({ ...prev, present: dataToday.stats?.present || 0 }));
 
       // 3. Fetch All Logs (only if on Logs tab to save bandwidth)
       if (activeTab === 'logs') {
-        const resLogs = await fetch('http://localhost:8000/attendance/logs');
+        const resLogs = await fetch(`${API_BASE_URL}/attendance/logs`);
         const dataLogs = await resLogs.json();
         setAllLogs(dataLogs.logs || []);
       }
@@ -116,7 +117,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const res = await fetch('http://localhost:8000/recognize', {
+      const res = await fetch(`${API_BASE_URL}/recognize`, {
         method: 'POST',
         body: formData
       });
@@ -441,7 +442,7 @@ function StudentManagementTab() {
       formData.append('name', studentName);
       selectedFiles.forEach(file => formData.append('files', file));
 
-      const res = await fetch('http://localhost:8000/register-student', {
+      const res = await fetch(`${API_BASE_URL}/register-student`, {
         method: 'POST',
         body: formData
       });
