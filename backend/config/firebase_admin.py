@@ -25,14 +25,18 @@ def initialize_firebase():
         return _bucket
     
     try:
-        # Path to service account key
-        service_account_path = os.path.join(
-            os.path.dirname(__file__), 
-            'serviceAccountKey.json'
-        )
+        # Check Render's secret files location first, then local
+        render_secret_path = '/etc/secrets/serviceAccountKey.json'
+        local_path = os.path.join(os.path.dirname(__file__), 'serviceAccountKey.json')
         
-        if not os.path.exists(service_account_path):
-            raise FileNotFoundError(f"Service account key not found at {service_account_path}")
+        if os.path.exists(render_secret_path):
+            service_account_path = render_secret_path
+            logger.info("Using Render secret file for Firebase credentials")
+        elif os.path.exists(local_path):
+            service_account_path = local_path
+            logger.info("Using local service account key")
+        else:
+            raise FileNotFoundError(f"Service account key not found at {render_secret_path} or {local_path}")
         
         # Initialize Firebase Admin
         cred = credentials.Certificate(service_account_path)
