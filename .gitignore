@@ -42,6 +42,10 @@ backend/config/serviceAccountKey.json
 data/embeddings/*.npy
 data/attendance.csv
 
+# IMPORTANT: Student photos - NEVER commit these for privacy!
+data/known_faces/
+!data/known_faces/.gitkeep
+
 # Logs
 *.log
 logs/
