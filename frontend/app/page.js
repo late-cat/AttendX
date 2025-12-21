@@ -22,6 +22,7 @@ export default function Home() {
 
   // State
   const [activeTab, setActiveTab] = useState('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar toggle
   const [stats, setStats] = useState({ present: 0, total_students: 0, system_status: 'Checking...' });
   const [todayLogs, setTodayLogs] = useState([]);
   const [allLogs, setAllLogs] = useState([]);
@@ -278,8 +279,34 @@ export default function Home() {
     <main className="flex min-h-screen bg-[var(--bg-dark)] text-white font-sans">
       {showWebcam && <WebcamCapture onCapture={handleWebcamCapture} onClose={() => setShowWebcam(false)} />}
 
+      {/* MOBILE HEADER - Only visible on small screens */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-20 bg-black/90 backdrop-blur-sm border-b border-glass-border p-4 flex justify-between items-center">
+        <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+          AttendX
+        </h1>
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="text-2xl p-2"
+        >
+          {sidebarOpen ? '✕' : '☰'}
+        </button>
+      </div>
+
+      {/* MOBILE OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-20"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* SIDEBAR */}
-      <aside className="w-64 border-r border-glass-border bg-black/20 flex flex-col fixed h-full z-10 glass-panel border-y-0 border-l-0 rounded-none">
+      <aside className={`
+        w-64 border-r border-glass-border bg-black/90 backdrop-blur-sm flex flex-col fixed h-full z-30
+        transition-transform duration-300
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:translate-x-0
+      `}>
         <div className="p-6 border-b border-glass-border">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent m-0">
             AttendX
@@ -287,11 +314,14 @@ export default function Home() {
           <p className="text-xs text-secondary mt-1">Smart Attendance v2.0</p>
         </div>
 
-        <nav className="flex-1 p-4 flex flex-col gap-2">
+        <nav className="flex-1 p-4 flex flex-col gap-2 overflow-y-auto">
           {TABS.map(tab => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                setSidebarOpen(false); // Close sidebar on mobile after selection
+              }}
               className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id
                 ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30'
                 : 'text-secondary hover:bg-white/5 hover:text-white'
@@ -317,15 +347,12 @@ export default function Home() {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 ml-64 p-8 overflow-y-auto">
+      <div className="flex-1 md:ml-64 p-4 md:p-8 overflow-y-auto pt-20 md:pt-8">
         {/* Top Header */}
-        <header className="flex justify-between items-center mb-8">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 md:mb-8 gap-2">
           <div>
-            <h2 className="text-xl font-semibold m-0">{TABS.find(t => t.id === activeTab)?.label}</h2>
-            <p className="text-sm text-secondary">Welcome back, Administrator.</p>
-          </div>
-          <div className="flex gap-4">
-            {/* We can add global actions here like 'Sync' or 'Help' */}
+            <h2 className="text-lg md:text-xl font-semibold m-0">{TABS.find(t => t.id === activeTab)?.label}</h2>
+            <p className="text-xs md:text-sm text-secondary">Welcome back, Administrator.</p>
           </div>
         </header>
 
@@ -346,11 +373,11 @@ function StatCard({ label, value, icon, color }) {
   }[color] || "bg-white/5";
 
   return (
-    <div className={`p-6 rounded-xl border ${colors} flex flex-col gap-2`}>
-      <div className="text-3xl">{icon}</div>
+    <div className={`p-4 md:p-6 rounded-xl border ${colors} flex flex-col gap-2`}>
+      <div className="text-2xl md:text-3xl">{icon}</div>
       <div>
-        <p className="text-secondary text-sm font-medium uppercase tracking-wider">{label}</p>
-        <p className="text-2xl font-bold">{value}</p>
+        <p className="text-secondary text-xs md:text-sm font-medium uppercase tracking-wider">{label}</p>
+        <p className="text-xl md:text-2xl font-bold break-words">{value}</p>
       </div>
     </div>
   );
