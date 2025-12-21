@@ -1,12 +1,7 @@
-# Memory optimizations for Render free tier (MUST be before TensorFlow import)
+# TensorFlow environment configuration (MUST be before TensorFlow import)
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TF logging
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN
-os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # Force CPU only
-os.environ['OMP_NUM_THREADS'] = '1'  # Limit OpenMP threads
-os.environ['TF_NUM_INTEROP_THREADS'] = '1'
-os.environ['TF_NUM_INTRAOP_THREADS'] = '1'
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -56,20 +51,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Enable CORS for both development and production
-import re
-
-def cors_allow_all_vercel(origin: str) -> bool:
-    """Allow localhost and all Vercel deployments"""
-    allowed_patterns = [
-        r"^http://localhost:3000$",
-        r"^https://.*\.vercel\.app$",
-    ]
-    return any(re.match(pattern, origin) for pattern in allowed_patterns)
-
+# Enable CORS for local development
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^(http://localhost:3000|https://.*\.vercel\.app)$",
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
