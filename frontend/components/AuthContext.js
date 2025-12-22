@@ -13,9 +13,16 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         // Check for redirect result on page load
-        getRedirectResult(auth).catch((error) => {
-            console.error("Redirect result error:", error);
-        });
+        getRedirectResult(auth)
+            .then((result) => {
+                if (result && result.user) {
+                    console.log("Redirect login successful:", result.user.email);
+                    setUser(result.user);
+                }
+            })
+            .catch((error) => {
+                console.error("Redirect result error:", error.code, error.message);
+            });
 
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
@@ -34,8 +41,9 @@ export const AuthProvider = ({ children }) => {
     const login = async () => {
         const provider = new GoogleAuthProvider();
         try {
-            // Use redirect instead of popup (works better on mobile)
-            await signInWithRedirect(auth, provider);
+            // Use popup for custom domains (ngrok, etc.) - redirect doesn't work well
+            const { signInWithPopup } = await import('firebase/auth');
+            await signInWithPopup(auth, provider);
         } catch (e) {
             console.error("Login Failed", e);
         }

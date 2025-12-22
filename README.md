@@ -106,12 +106,13 @@ npm run dev
 
 ### Terminal 3: ngrok (Optional - for public access)
 ```bash
-ngrok http 3000 --domain=your-domain.ngrok-free.dev
+ngrok http 3000
 ```
+> **Note**: This gives you a random public URL. To use your static domain, check [dashboard.ngrok.com/domains](https://dashboard.ngrok.com/domains) for your exact domain.
 
 ### 🌐 Access the App
 - **Local**: http://localhost:3000
-- **Public (via ngrok)**: https://your-domain.ngrok-free.dev
+- **Public (via ngrok)**: https://unflowering-unexplicitly-scarlet.ngrok-free.app
 
 ---
 
@@ -140,7 +141,7 @@ AttendX/
 │   └── lib/
 │       ├── api.js             # API configuration
 │       └── firebase.js        # Firebase client config
-│
+
 ├── data/
 │   ├── known_faces/           # Registered student photos
 │   ├── embeddings/            # Face embeddings (.npy files)
@@ -202,14 +203,18 @@ For hackathon demos or sharing with others:
 
 3. **Add domain to Firebase** (one-time):
    - Firebase Console → Authentication → Settings → Authorized domains
-   - Add: `your-domain.ngrok-free.dev`
+   - Add: `unflowering-unexplicitly-scarlet.ngrok-free.app`
 
 4. **Run ngrok**:
    ```bash
-   ngrok http 3000 --domain=your-domain.ngrok-free.dev
+   ngrok http 3000 --domain=unflowering-unexplicitly-scarlet.ngrok-free.app
    ```
 
 ---
+for my case it's: 
+```bash
+ngrok http 3000 --domain=unflowering-unexplicitly-scarlet.ngrok-free.dev
+```
 
 ## 🤝 Contributing
 

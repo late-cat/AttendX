@@ -30,7 +30,8 @@ try:
         upload_embedding,
         download_all_embeddings,
         sync_embeddings_to_firebase,
-        get_storage_usage
+        get_storage_usage,
+        delete_student_data
     )
 except ImportError:
     # Fallback for local development
@@ -42,7 +43,8 @@ except ImportError:
         upload_embedding,
         download_all_embeddings,
         sync_embeddings_to_firebase,
-        get_storage_usage
+        get_storage_usage,
+        delete_student_data
     )
 
 # Setup logging
@@ -282,6 +284,87 @@ async def register_student(name: str = Form(...), files: list[UploadFile] = File
             shutil.rmtree(student_dir)
         logger.error(f"❌ Registration failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/students")
+def list_students():
+    """List all registered students."""
+    students = []
+    
+    if os.path.exists(KNOWN_FACES_DIR):
+        for name in os.listdir(KNOWN_FACES_DIR):
+            student_path = os.path.join(KNOWN_FACES_DIR, name)
+            if os.path.isdir(student_path) and not name.startswith('.'):
+                # Count images
+                images = [f for f in os.listdir(student_path) 
+                         if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+                
+                # Check if embedding exists
+                embedding_exists = os.path.exists(
+                    os.path.join(EMBEDDINGS_DIR, f"{name}.npy")
+                )
+                
+                students.append({
+                    "name": name,
+                    "image_count": len(images),
+                    "has_embedding": embedding_exists
+                })
+    
+    return {
+        "students": sorted(students, key=lambda x: x["name"]),
+        "total": len(students)
+    }
+
+
+@app.delete("/delete-student/{student_name}")
+async def delete_student(student_name: str):
+    """Delete a student from local storage and Firebase."""
+    if not student_name:
+        raise HTTPException(status_code=400, detail="Student name required")
+    
+    logger.info(f"🗑️ Deleting student: {student_name}")
+    
+    deleted_local = False
+    deleted_firebase = False
+    
+    try:
+        # 1. Delete local images folder
+        student_dir = os.path.join(KNOWN_FACES_DIR, student_name)
+        if os.path.exists(student_dir):
+            shutil.rmtree(student_dir)
+            logger.info(f"✅ Deleted local images: {student_dir}")
+            deleted_local = True
+        
+        # 2. Delete local embedding
+        embedding_path = os.path.join(EMBEDDINGS_DIR, f"{student_name}.npy")
+        if os.path.exists(embedding_path):
+            os.remove(embedding_path)
+            logger.info(f"✅ Deleted local embedding: {embedding_path}")
+            deleted_local = True
+        
+        # 3. Delete from Firebase
+        try:
+            delete_student_data(student_name)
+            deleted_firebase = True
+            logger.info(f"✅ Deleted from Firebase: {student_name}")
+        except Exception as e:
+            logger.warning(f"⚠️ Firebase delete failed: {e}")
+        
+        if not deleted_local and not deleted_firebase:
+            raise HTTPException(status_code=404, detail=f"Student '{student_name}' not found")
+        
+        return {
+            "status": "success",
+            "message": f"Student '{student_name}' deleted successfully",
+            "deleted_local": deleted_local,
+            "deleted_firebase": deleted_firebase
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Delete failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -449,6 +449,30 @@ function StudentManagementTab() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState('');
+  
+  // New: Student list state
+  const [students, setStudents] = useState([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [deletingStudent, setDeletingStudent] = useState(null);
+
+  // Fetch students on mount
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/students`);
+      if (res.ok) {
+        const data = await res.json();
+        setStudents(data.students || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch students:", e);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
 
   const handleFileChange = (e) => {
     setSelectedFiles(Array.from(e.target.files));
@@ -480,6 +504,9 @@ function StudentManagementTab() {
       setMessage(`✅ ${data.message}`);
       setStudentName('');
       setSelectedFiles([]);
+      
+      // Refresh student list
+      fetchStudents();
     } catch (e) {
       setMessage('❌ Registration failed. Check console for details.');
       console.error(e);
@@ -487,54 +514,129 @@ function StudentManagementTab() {
       setIsRegistering(false);
     }
   };
+  
+  const handleDelete = async (name) => {
+    if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) {
+      return;
+    }
+    
+    setDeletingStudent(name);
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/delete-student/${encodeURIComponent(name)}`, {
+        method: 'DELETE'
+      });
+      
+      if (!res.ok) throw new Error('Delete failed');
+      
+      const data = await res.json();
+      setMessage(`✅ ${data.message}`);
+      
+      // Remove from local state
+      setStudents(prev => prev.filter(s => s.name !== name));
+    } catch (e) {
+      setMessage('❌ Delete failed. Check console for details.');
+      console.error(e);
+    } finally {
+      setDeletingStudent(null);
+    }
+  };
 
   return (
-    <div className="glass-panel p-8 animate-in max-w-2xl mx-auto">
-      <h2 className="mb-2">👨‍🎓 Register New Student</h2>
-      <p className="text-secondary mb-8">Add student photos to enable face recognition</p>
+    <div className="flex flex-col gap-8 animate-in">
+      {/* Register New Student */}
+      <div className="glass-panel p-8 max-w-2xl mx-auto w-full">
+        <h2 className="mb-2">👨‍🎓 Register New Student</h2>
+        <p className="text-secondary mb-8">Add student photos to enable face recognition</p>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <div>
-          <label className="block text-sm font-medium mb-2">Student Name</label>
-          <input
-            type="text"
-            value={studentName}
-            onChange={(e) => setStudentName(e.target.value)}
-            className="w-full bg-white/5 border border-glass-border rounded px-4 py-3 focus:outline-none focus:border-blue-500"
-            placeholder="Enter full name"
-            required
-          />
-        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">Student Name</label>
+            <input
+              type="text"
+              value={studentName}
+              onChange={(e) => setStudentName(e.target.value)}
+              className="w-full bg-white/5 border border-glass-border rounded px-4 py-3 focus:outline-none focus:border-blue-500"
+              placeholder="Enter full name"
+              required
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2">Upload Photos (3-5 recommended)</label>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            onChange={handleFileChange}
-            className="w-full bg-white/5 border border-glass-border rounded px-4 py-3 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
-            required
-          />
-          {selectedFiles.length > 0 && (
-            <p className="text-sm text-secondary mt-2">{selectedFiles.length} file(s) selected</p>
+          <div>
+            <label className="block text-sm font-medium mb-2">Upload Photos (3-5 recommended)</label>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleFileChange}
+              className="w-full bg-white/5 border border-glass-border rounded px-4 py-3 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+              required
+            />
+            {selectedFiles.length > 0 && (
+              <p className="text-sm text-secondary mt-2">{selectedFiles.length} file(s) selected</p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isRegistering}
+            className="btn btn-primary justify-center"
+          >
+            {isRegistering ? '⏳ Processing...' : '✓ Register Student'}
+          </button>
+
+          {message && (
+            <div className="p-4 bg-white/5 rounded-lg border border-glass-border text-center">
+              <p className="font-medium">{message}</p>
+            </div>
           )}
+        </form>
+      </div>
+
+      {/* Registered Students List */}
+      <div className="glass-panel p-8 max-w-2xl mx-auto w-full">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="m-0">📋 Registered Students</h2>
+          <span className="text-sm text-secondary">{students.length} total</span>
         </div>
 
-        <button
-          type="submit"
-          disabled={isRegistering}
-          className="btn btn-primary justify-center"
-        >
-          {isRegistering ? '⏳ Processing...' : '✓ Register Student'}
-        </button>
-
-        {message && (
-          <div className="p-4 bg-white/5 rounded-lg border border-glass-border text-center">
-            <p className="font-medium">{message}</p>
+        {loadingStudents ? (
+          <div className="text-center py-8 text-secondary">Loading students...</div>
+        ) : students.length === 0 ? (
+          <div className="text-center py-8 border border-dashed border-glass-border rounded-lg bg-white/5">
+            <p className="text-secondary">No students registered yet.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {students.map((student) => (
+              <div
+                key={student.name}
+                className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-glass-border hover:bg-white/10 transition-colors"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-bold">
+                    {student.name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div>
+                    <p className="font-medium">{student.name}</p>
+                    <p className="text-xs text-secondary">
+                      {student.image_count} photo(s) • {student.has_embedding ? '✅ Ready' : '⚠️ No embedding'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDelete(student.name)}
+                  disabled={deletingStudent === student.name}
+                  className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  {deletingStudent === student.name ? '⏳' : '🗑️ Delete'}
+                </button>
+              </div>
+            ))}
           </div>
         )}
-      </form>
+      </div>
     </div>
   );
 }
+
