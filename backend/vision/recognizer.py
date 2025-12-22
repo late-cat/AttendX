@@ -15,11 +15,23 @@ MODEL_NAME = "ArcFace"
 DETECTOR_BACKEND = "retinaface"
 THRESHOLD = 0.50
 
-def load_embeddings():
-    """Load all saved embeddings from the directory."""
+# Performance: Global embedding cache
+_cached_embeddings = None
+_cache_loaded = False
+
+def load_embeddings(force_reload=False):
+    """Load embeddings with caching for performance."""
+    global _cached_embeddings, _cache_loaded
+    
+    # Return cached if available and not forcing reload
+    if _cache_loaded and not force_reload:
+        return _cached_embeddings
+    
     embeddings = {}
     if not os.path.exists(EMBEDDINGS_DIR):
         print(f"Warning: {EMBEDDINGS_DIR} does not exist.")
+        _cached_embeddings = {}
+        _cache_loaded = True
         return {}
     
     for file in os.listdir(EMBEDDINGS_DIR):
@@ -27,7 +39,15 @@ def load_embeddings():
             name = os.path.splitext(file)[0]
             path = os.path.join(EMBEDDINGS_DIR, file)
             embeddings[name] = np.load(path)
+    
+    _cached_embeddings = embeddings
+    _cache_loaded = True
+    print(f"✅ Loaded {len(embeddings)} embeddings into cache")
     return embeddings
+
+def reload_embeddings():
+    """Force reload embeddings (call after registration)."""
+    return load_embeddings(force_reload=True)
 
 def find_cosine_distance(source_representation, test_representation):
     """Calculate cosine distance between two vectors."""

@@ -297,27 +297,66 @@ h1 {
   border: none;
 }
 
-/* --- Utilities --- */
-.flex-col {
+/* --- Glass Panel --- */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+/* --- Animations --- */
+.animate-in {
+  animation: animateIn 0.3s ease-out forwards;
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+@keyframes animateIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* --- Utilities (renamed to avoid Tailwind conflicts) --- */
+.stack {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.mb-1 {
+.margin-bottom-xs {
   margin-bottom: 0.25rem;
 }
 
-.text-center {
+.centered-text {
   text-align: center;
 }
 
-.grid-cols-2 {
+.two-col-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
 }
 
-.w-full {
+.full-width {
   width: 100%;
 }

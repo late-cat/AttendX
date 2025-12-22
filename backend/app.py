@@ -9,6 +9,7 @@ import shutil
 import uuid
 import sys
 import logging
+import re
 
 import pandas as pd
 from datetime import datetime
@@ -22,7 +23,7 @@ sys.path.insert(0, current_dir)
 
 # Import from backend subdirectories
 try:
-    from backend.vision.recognizer import recognize_face, ATTENDANCE_FILE
+    from backend.vision.recognizer import recognize_face, reload_embeddings, ATTENDANCE_FILE
     from backend.vision.embedding_utils import generate_embeddings_for_person
     from backend.config.firebase_admin import (
         initialize_firebase,
@@ -35,7 +36,7 @@ try:
     )
 except ImportError:
     # Fallback for local development
-    from vision.recognizer import recognize_face, ATTENDANCE_FILE
+    from vision.recognizer import recognize_face, reload_embeddings, ATTENDANCE_FILE
     from vision.embedding_utils import generate_embeddings_for_person
     from config.firebase_admin import (
         initialize_firebase,
@@ -53,14 +54,26 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Enable CORS for all origins (allows any device/domain to access the API)
+# Security: CORS configuration via environment variable
+# Default to localhost for development; set ALLOWED_ORIGINS in production
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Security: Input validation helper
+def sanitize_student_name(name: str) -> str:
+    """Sanitize student name to prevent path traversal attacks."""
+    # Keep only alphanumeric, spaces, hyphens
+    sanitized = re.sub(r'[^a-zA-Z0-9\s\-]', '', name).strip()[:50]
+    if not sanitized:
+        raise ValueError("Invalid student name")
+    return sanitized
 
 TEMP_DIR = os.path.join(os.path.dirname(__file__), "temp_uploads")
 if not os.path.exists(TEMP_DIR):
@@ -102,10 +115,13 @@ def read_root():
 @app.get("/stats")
 def get_stats():
     """Return system statistics."""
-    # Count total students from embeddings
+    # Count total students from known_faces (same source as /students)
     total_students = 0
-    if os.path.exists(EMBEDDINGS_DIR):
-        total_students = len([f for f in os.listdir(EMBEDDINGS_DIR) if f.endswith('.npy')])
+    if os.path.exists(KNOWN_FACES_DIR):
+        total_students = len([
+            d for d in os.listdir(KNOWN_FACES_DIR) 
+            if os.path.isdir(os.path.join(KNOWN_FACES_DIR, d)) and not d.startswith('.')
+        ])
     
     return {
         "total_students": total_students,
@@ -229,6 +245,17 @@ async def register_student(name: str = Form(...), files: list[UploadFile] = File
     if not name or not files:
         raise HTTPException(status_code=400, detail="Name and images required")
     
+    # Security: Sanitize student name
+    try:
+        name = sanitize_student_name(name)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid student name")
+    
+    # Validation: Max 10 images per student
+    MAX_FILES = 10
+    if len(files) > MAX_FILES:
+        raise HTTPException(status_code=400, detail=f"Maximum {MAX_FILES} images allowed")
+    
     # Create student folder locally
     student_dir = os.path.join(KNOWN_FACES_DIR, name)
     os.makedirs(student_dir, exist_ok=True)
@@ -265,6 +292,10 @@ async def register_student(name: str = Form(...), files: list[UploadFile] = File
             logger.info(f"✅ Uploaded embedding to Firebase")
         except Exception as e:
             logger.warning(f"⚠️ Embedding upload failed: {e}")
+        
+        # Step 5: Reload embeddings cache for immediate recognition
+        reload_embeddings()
+        logger.info(f"✅ Embeddings cache refreshed")
         
         return {
             "status": "success",
@@ -351,6 +382,10 @@ async def delete_student(student_name: str):
         
         if not deleted_local and not deleted_firebase:
             raise HTTPException(status_code=404, detail=f"Student '{student_name}' not found")
+        
+        # Reload embeddings cache so deleted student is no longer recognized
+        reload_embeddings()
+        logger.info(f"✅ Embeddings cache refreshed")
         
         return {
             "status": "success",

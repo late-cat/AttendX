@@ -16,6 +16,14 @@ const TABS = [
   { id: 'settings', label: 'Settings', icon: '⚙️' },
 ];
 
+// --- DATE/TIME FORMATTING HELPERS ---
+const formatDate = (d) => d?.split('-').reverse().join('/') || '';
+const formatTime = (t) => {
+  if (!t) return '';
+  const [h, m] = t.split(':');
+  return `${h % 12 || 12}:${m} ${h >= 12 ? 'PM' : 'AM'}`;
+};
+
 export default function Home() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
@@ -38,6 +46,12 @@ export default function Home() {
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
+
+  // Prevent background scrolling when mobile sidebar is open
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [sidebarOpen]);
 
 
   // --- DATA FETCHING ---
@@ -146,7 +160,7 @@ export default function Home() {
 
   const exportCSV = () => {
     const csvContent = "Name,Date,Time\n" +
-      todayLogs.map(log => `${log.Name},${log.Date},${log.Time}`).join("\n");
+      todayLogs.map(log => `${log.Name},${formatDate(log.Date)},${formatTime(log.Time)}`).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -168,7 +182,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in">
             <StatCard label="Total Students" value={stats.total_students} icon="👨‍🎓" color="blue" />
             <StatCard label="Present Today" value={stats.present} icon="✅" color="green" />
-            <StatCard label="Attendance %" value={`${((stats.present / stats.total_students) * 100).toFixed(1)}%`} icon="📈" color="purple" />
+            <StatCard label="Attendance %" value={`${stats.total_students > 0 ? ((stats.present / stats.total_students) * 100).toFixed(1) : 0}%`} icon="📈" color="purple" />
             <StatCard label="System Status" value={stats.system_status} icon="🖥️" color="gray" />
 
             <div className="col-span-full md:col-span-2 glass-panel p-6 mt-4">
@@ -177,7 +191,7 @@ export default function Home() {
                 <button onClick={() => setActiveTab('logs')} className="text-sm text-blue-400">View All</button>
               </div>
               <div className="flex flex-col gap-3">
-                {todayLogs.slice(0, 5).map((log, i) => (
+                {[...todayLogs].reverse().slice(0, 5).map((log, i) => (
                   <LogItem key={i} log={log} />
                 ))}
                 {todayLogs.length === 0 && <p className="text-secondary text-center">No activity today.</p>}
@@ -251,7 +265,7 @@ export default function Home() {
               <h2>🗓️ Today's Attendance</h2>
               <button onClick={exportCSV} className="btn btn-secondary text-sm">📥 Export CSV</button>
             </div>
-            <AttendanceTable data={todayLogs} />
+            <AttendanceTable data={[...todayLogs].reverse()} />
           </div>
         );
 
@@ -262,7 +276,7 @@ export default function Home() {
               <h2>🧾 Full Attendance Logs</h2>
               <input type="text" placeholder="Search student..." className="bg-white/5 border border-glass-border rounded px-3 py-2 text-sm" />
             </div>
-            <AttendanceTable data={allLogs} />
+            <AttendanceTable data={[...allLogs].reverse()} />
           </div>
         );
 
@@ -412,8 +426,8 @@ function AttendanceTable({ data }) {
                 </div>
                 {row.Name}
               </td>
-              <td className="px-6 py-4 text-secondary">{row.Date}</td>
-              <td className="px-6 py-4 font-mono text-secondary">{row.Time}</td>
+              <td className="px-6 py-4 text-secondary">{formatDate(row.Date)}</td>
+              <td className="px-6 py-4 font-mono text-secondary">{formatTime(row.Time)}</td>
               <td className="px-6 py-4">
                 <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
                   Present
@@ -436,7 +450,7 @@ function LogItem({ log }) {
         </div>
         <div>
           <p className="font-medium text-sm">{log.Name}</p>
-          <p className="text-xs text-secondary">{log.Time}</p>
+          <p className="text-xs text-secondary">{formatTime(log.Time)}</p>
         </div>
       </div>
       <span className="text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded">Verified</span>
@@ -449,7 +463,7 @@ function StudentManagementTab() {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [isRegistering, setIsRegistering] = useState(false);
   const [message, setMessage] = useState('');
-  
+
   // New: Student list state
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -504,7 +518,7 @@ function StudentManagementTab() {
       setMessage(`✅ ${data.message}`);
       setStudentName('');
       setSelectedFiles([]);
-      
+
       // Refresh student list
       fetchStudents();
     } catch (e) {
@@ -514,24 +528,24 @@ function StudentManagementTab() {
       setIsRegistering(false);
     }
   };
-  
+
   const handleDelete = async (name) => {
     if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) {
       return;
     }
-    
+
     setDeletingStudent(name);
-    
+
     try {
       const res = await fetch(`${API_BASE_URL}/delete-student/${encodeURIComponent(name)}`, {
         method: 'DELETE'
       });
-      
+
       if (!res.ok) throw new Error('Delete failed');
-      
+
       const data = await res.json();
       setMessage(`✅ ${data.message}`);
-      
+
       // Remove from local state
       setStudents(prev => prev.filter(s => s.name !== name));
     } catch (e) {
@@ -620,7 +634,7 @@ function StudentManagementTab() {
                   <div>
                     <p className="font-medium">{student.name}</p>
                     <p className="text-xs text-secondary">
-                      {student.image_count} photo(s) • {student.has_embedding ? '✅ Ready' : '⚠️ No embedding'}
+                      {student.image_count} photos • {student.has_embedding ? '✅ Ready' : '⚠️ No embedding'}
                     </p>
                   </div>
                 </div>

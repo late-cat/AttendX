@@ -33,8 +33,12 @@ def initialize_firebase():
         
         # Initialize Firebase Admin
         cred = credentials.Certificate(service_account_path)
+        
+        # Security: Load bucket from environment variable
+        FIREBASE_BUCKET = os.environ.get("FIREBASE_STORAGE_BUCKET", "attendx-572c8.firebasestorage.app")
+        
         firebase_admin.initialize_app(cred, {
-            'storageBucket': 'attendx-572c8.firebasestorage.app'
+            'storageBucket': FIREBASE_BUCKET
         })
         
         # Get storage bucket
