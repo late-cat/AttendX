@@ -121,7 +121,10 @@ ngrok http 3000 --domain=unflowering-unexplicitly-scarlet.ngrok-free.dev
 ```
 
 > 💡 Add your ngrok domain to Firebase → Authentication → Authorized domains
-
+```bash
+pkill -f "next dev"
+npm run dev
+```
 ---
 
 ## 📁 Project Structure
