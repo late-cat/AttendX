@@ -163,6 +163,33 @@ def get_logs():
     except Exception as e:
         return {"logs": [], "error": str(e)}
 
+@app.delete("/attendance/clear/today")
+def clear_today_attendance():
+    """Clear only today's attendance records."""
+    if not os.path.exists(ATTENDANCE_FILE):
+        return {"status": "success", "message": "No attendance file found", "deleted": 0}
+    
+    try:
+        df = pd.read_csv(ATTENDANCE_FILE)
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        original_count = len(df)
+        
+        # Keep only non-today records
+        df = df[df["Date"] != today_str]
+        df.to_csv(ATTENDANCE_FILE, index=False)
+        
+        deleted = original_count - len(df)
+        logger.info(f"🗑️ Cleared {deleted} attendance records for today")
+        
+        return {
+            "status": "success",
+            "message": f"Cleared {deleted} records for today",
+            "deleted": deleted
+        }
+    except Exception as e:
+        logger.error(f"❌ Clear today failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/attendance/today")
 def get_today_logs():
     """Return only today's attendance."""
@@ -383,6 +410,19 @@ async def delete_student(student_name: str):
         if not deleted_local and not deleted_firebase:
             raise HTTPException(status_code=404, detail=f"Student '{student_name}' not found")
         
+        # 4. Delete student's attendance records
+        deleted_attendance = 0
+        if os.path.exists(ATTENDANCE_FILE):
+            try:
+                df = pd.read_csv(ATTENDANCE_FILE)
+                original_count = len(df)
+                df = df[df["Name"] != student_name]
+                df.to_csv(ATTENDANCE_FILE, index=False)
+                deleted_attendance = original_count - len(df)
+                logger.info(f"✅ Deleted {deleted_attendance} attendance records for {student_name}")
+            except Exception as e:
+                logger.warning(f"⚠️ Attendance cleanup failed: {e}")
+        
         # Reload embeddings cache so deleted student is no longer recognized
         reload_embeddings()
         logger.info(f"✅ Embeddings cache refreshed")
@@ -391,7 +431,8 @@ async def delete_student(student_name: str):
             "status": "success",
             "message": f"Student '{student_name}' deleted successfully",
             "deleted_local": deleted_local,
-            "deleted_firebase": deleted_firebase
+            "deleted_firebase": deleted_firebase,
+            "attendance_records_removed": deleted_attendance
         }
         
     except HTTPException:

@@ -34,6 +34,8 @@ export default function Home() {
   const [stats, setStats] = useState({ present: 0, total_students: 0, system_status: 'Checking...' });
   const [todayLogs, setTodayLogs] = useState([]);
   const [allLogs, setAllLogs] = useState([]);
+  const [logsFilter, setLogsFilter] = useState('today'); // 'today', '7days', 'all'
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Upload/Live State
   const [isUploading, setIsUploading] = useState(false);
@@ -170,6 +172,48 @@ export default function Home() {
     window.URL.revokeObjectURL(url);
   };
 
+  const clearTodayAttendance = async () => {
+    if (!confirm('Are you sure you want to clear today\'s attendance? This cannot be undone.')) {
+      return;
+    }
+    try {
+      const res = await fetch(`${API_BASE_URL}/attendance/clear/today`, { method: 'DELETE' });
+      if (res.ok) {
+        const data = await res.json();
+        alert(`✅ ${data.message}`);
+        fetchDashboardData();
+      }
+    } catch (e) {
+      alert('❌ Failed to clear attendance');
+    }
+  };
+
+  // Filter logs based on selected filter
+  const getFilteredLogs = () => {
+    let logs = [...allLogs].reverse();
+    const today = new Date();
+    
+    if (logsFilter === 'today') {
+      const todayStr = today.toISOString().split('T')[0];
+      logs = logs.filter(log => log.Date === todayStr);
+    } else if (logsFilter === '7days') {
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      logs = logs.filter(log => {
+        const logDate = new Date(log.Date);
+        return logDate >= weekAgo;
+      });
+    }
+    
+    // Apply search filter
+    if (searchQuery.trim()) {
+      logs = logs.filter(log => 
+        log.Name?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+    
+    return logs;
+  };
+
 
 
   if (loading || !user) return null;
@@ -182,7 +226,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-in">
             <StatCard label="Total Students" value={stats.total_students} icon="👨‍🎓" color="blue" />
             <StatCard label="Present Today" value={stats.present} icon="✅" color="green" />
-            <StatCard label="Attendance %" value={`${stats.total_students > 0 ? ((stats.present / stats.total_students) * 100).toFixed(1) : 0}%`} icon="📈" color="purple" />
+            <StatCard label="Attendance %" value={`${stats.total_students > 0 ? Math.min(100, (stats.present / stats.total_students) * 100).toFixed(1) : 0}%`} icon="📈" color="purple" />
             <StatCard label="System Status" value={stats.system_status} icon="🖥️" color="gray" />
 
             <div className="col-span-full md:col-span-2 glass-panel p-6 mt-4">
@@ -261,9 +305,14 @@ export default function Home() {
       case 'today':
         return (
           <div className="glass-panel p-6 animate-in">
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
               <h2>🗓️ Today's Attendance</h2>
-              <button onClick={exportCSV} className="btn btn-secondary text-sm">📥 Export CSV</button>
+              <div className="flex gap-2">
+                <button onClick={clearTodayAttendance} className="btn text-sm px-3 py-2 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 rounded-lg">
+                  🗑️ Clear
+                </button>
+                <button onClick={exportCSV} className="btn btn-secondary text-sm">📥 Export CSV</button>
+              </div>
             </div>
             <AttendanceTable data={[...todayLogs].reverse()} />
           </div>
@@ -272,11 +321,28 @@ export default function Home() {
       case 'logs':
         return (
           <div className="glass-panel p-6 animate-in">
-            <div className="flex justify-between items-center mb-6">
-              <h2>🧾 Full Attendance Logs</h2>
-              <input type="text" placeholder="Search student..." className="bg-white/5 border border-glass-border rounded px-3 py-2 text-sm" />
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
+              <h2>🧾 Attendance Logs</h2>
+              <div className="flex gap-3 items-center">
+                <select 
+                  value={logsFilter} 
+                  onChange={(e) => setLogsFilter(e.target.value)}
+                  className="bg-white/5 border border-glass-border rounded px-3 py-2 text-sm"
+                >
+                  <option value="today">Today</option>
+                  <option value="7days">Past 7 Days</option>
+                  <option value="all">All Time</option>
+                </select>
+                <input 
+                  type="text" 
+                  placeholder="Search student..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-white/5 border border-glass-border rounded px-3 py-2 text-sm w-40" 
+                />
+              </div>
             </div>
-            <AttendanceTable data={[...allLogs].reverse()} />
+            <AttendanceTable data={getFilteredLogs()} />
           </div>
         );
 
