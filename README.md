@@ -117,11 +117,13 @@ cd frontend && npm run dev
 Share your local app with judges/classmates instantly:
 
 ```bash
-ngrok http 3000 --domain=unflowering-unexplicitly-scarlet.ngrok-free.dev
-```
+
+```ngrok http 3000 --domain=unflowering-unexplicitly-scarlet.ngrok-free.dev
 
 > 💡 Add your ngrok domain to Firebase → Authentication → Authorized domains
 ```bash
+source .venv/bin/activate
+
 pkill -f "next dev"
 npm run dev
 ```

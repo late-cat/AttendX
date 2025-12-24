@@ -1,9 +1,9 @@
 
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from '../lib/firebase';
-import { GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { auth } from '../lib/firebase';
+import { GoogleAuthProvider, getRedirectResult, onAuthStateChanged, signOut } from 'firebase/auth';
+
 
 const AuthContext = createContext({});
 
