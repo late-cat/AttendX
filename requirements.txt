@@ -2,12 +2,12 @@
 deepface>=0.0.92
 opencv-python>=4.8.0
 pandas>=2.0.0
-numpy<2
+numpy>=1.26.0
 
 # DeepFace requires TensorFlow (CPU version is sufficient for inference)
-# Pin to 2.15.x to avoid keras import errors in 2.16+
-tensorflow==2.15.1
-tf-keras==2.15.1
+# Updated to 2.20.x for Python 3.13 compatibility
+tensorflow>=2.20.0
+tf-keras>=2.20.0
 
 # Firebase integration (optional - for cloud features)
 firebase-admin>=6.0.0

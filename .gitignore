@@ -49,3 +49,4 @@ data/known_faces/
 # Logs
 *.log
 logs/
+frontend/demo/
