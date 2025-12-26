@@ -37,7 +37,11 @@ from config.firebase_admin import (
     get_attendance_logs,
     get_today_attendance as get_today_attendance_firestore,
     clear_today_attendance_firestore,
-    get_all_students_with_photo_counts
+    get_all_students_with_photo_counts,
+    # Metadata optimization
+    update_student_metadata,
+    delete_student_metadata,
+    get_all_students_from_metadata
 )
 
 # Setup logging
@@ -287,6 +291,12 @@ async def register_student(name: str = Form(...), files: list[UploadFile] = File
         reload_embeddings()
         logger.info(f"✅ Embeddings cache refreshed")
         
+        # Step 6: Update metadata (Optimization)
+        try:
+            update_student_metadata(name, len(image_urls))
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to update metadata: {e}")
+        
         return {
             "status": "success",
             "message": f"Student {name} registered successfully",
@@ -308,9 +318,27 @@ async def register_student(name: str = Form(...), files: list[UploadFile] = File
 
 @app.get("/students")
 def list_students():
-    """List all registered students with photo counts from Firebase Storage."""
+    """List all registered students (Optimized). using metadata."""
     try:
-        students = get_all_students_with_photo_counts()
+        # 1. Try fast metadata query
+        students = get_all_students_from_metadata()
+        
+        # 2. If empty but embeddings exist, might need migration (First run)
+        if not students and os.path.exists(EMBEDDINGS_DIR) and os.listdir(EMBEDDINGS_DIR):
+            logger.info("⚠️ Metadata empty but embeddings exist. Migrating...")
+            
+            # Fallback to slow method
+            students = get_all_students_with_photo_counts()
+            
+            # Populate metadata for next time (Lazy Migration)
+            for s in students:
+                try:
+                    update_student_metadata(s['name'], s['image_count'])
+                except:
+                    pass
+            
+            logger.info("✅ Migration complete")
+            
         return {
             "students": students,
             "total": len(students)
@@ -370,6 +398,15 @@ async def delete_student(student_name: str):
             except Exception as e:
                 logger.warning(f"⚠️ Attendance cleanup failed: {e}")
         
+            except Exception as e:
+                logger.warning(f"⚠️ Attendance cleanup failed: {e}")
+        
+        # 5. Delete metadata (Optimization)
+        try:
+            delete_student_metadata(student_name)
+        except Exception as e:
+            logger.warning(f"⚠️ Metadata cleanup failed: {e}")
+            
         # Reload embeddings cache so deleted student is no longer recognized
         reload_embeddings()
         logger.info(f"✅ Embeddings cache refreshed")

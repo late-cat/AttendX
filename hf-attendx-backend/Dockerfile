@@ -19,6 +19,10 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# OPTIMIZATION: Pre-download DeepFace models during build
+# This saves ~100MB download at runtime and speeds up startup
+RUN python3 -c "from deepface import DeepFace; p = DeepFace.build_model('ArcFace'); print('✅ ArcFace model downloaded successfully')"
+
 # Copy application code
 COPY . .
 

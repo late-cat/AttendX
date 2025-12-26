@@ -438,6 +438,37 @@ def get_attendance_logs(days: int = None) -> list:
         return []
 
 
+def check_attendance_exists(name: str, date: str) -> bool:
+    """
+    Check if attendance already exists for a student on a given date.
+    Efficient query: limit(1)
+    
+    Args:
+        name: Student name
+        date: Date string (YYYY-MM-DD)
+        
+    Returns:
+        True if exists
+    """
+    try:
+        db = get_firestore_db()
+        docs = db.collection('attendance_logs')\
+                 .where('name', '==', name)\
+                 .where('date', '==', date)\
+                 .limit(1)\
+                 .stream()
+        
+        # If any document is returned, it exists
+        for _ in docs:
+            return True
+            
+        return False
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to check attendance existence: {e}")
+        return False
+
+
 def get_today_attendance() -> dict:
     """
     Fetch today's attendance from Firestore
@@ -474,6 +505,7 @@ def get_today_attendance() -> dict:
     except Exception as e:
         logger.error(f"❌ Failed to fetch today's attendance: {e}")
         return {'logs': [], 'stats': {'present': 0, 'total_entries': 0}}
+
 
 
 def cleanup_old_logs(days: int = 15) -> int:
@@ -534,6 +566,55 @@ def clear_today_attendance_firestore() -> int:
         logger.error(f"❌ Failed to clear today's attendance: {e}")
         return 0
 
+
+# ==================== FIRESTORE (STUDENT METADATA) ====================
+
+def update_student_metadata(name: str, photo_count: int):
+    """
+    Update student metadata (photo count) in Firestore.
+    Solves N+1 query issue for student list.
+    """
+    try:
+        db = get_firestore_db()
+        db.collection('students').document(name).set({
+            'name': name,
+            'photo_count': photo_count,
+            'last_updated': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+        logger.info(f"✅ Updated metadata for {name}: {photo_count} photos")
+    except Exception as e:
+        logger.error(f"❌ Failed to update metadata for {name}: {e}")
+
+def delete_student_metadata(name: str):
+    """Delete student metadata from Firestore"""
+    try:
+        db = get_firestore_db()
+        db.collection('students').document(name).delete()
+        logger.info(f"✅ Deleted metadata for {name}")
+    except Exception as e:
+        logger.error(f"❌ Failed to delete metadata for {name}: {e}")
+
+def get_all_students_from_metadata() -> list:
+    """
+    Get all students from Firestore metadata (Fast!)
+    Replaces slow storage iteration.
+    """
+    try:
+        db = get_firestore_db()
+        docs = db.collection('students').order_by('name').stream()
+        
+        students = []
+        for doc in docs:
+            data = doc.to_dict()
+            students.append({
+                "name": data.get('name', doc.id),
+                "image_count": data.get('photo_count', 0),
+                "has_embedding": True # If in metadata, it's registered
+            })
+        return students
+    except Exception as e:
+        logger.error(f"❌ Failed to get students from metadata: {e}")
+        return []
 
 # ==================== STORAGE QUERIES ====================
 
