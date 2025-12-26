@@ -1,0 +1,18 @@
+# Core dependencies for face recognition
+deepface>=0.0.92
+opencv-python>=4.8.0
+pandas>=2.0.0
+numpy>=1.26.0
+
+# DeepFace requires TensorFlow (CPU version is sufficient for inference)
+# Updated to 2.20.x for Python 3.13 compatibility
+tensorflow>=2.20.0
+tf-keras>=2.20.0
+
+# Firebase integration (optional - for cloud features)
+firebase-admin>=6.0.0
+
+# Backend API dependencies
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6

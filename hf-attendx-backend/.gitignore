@@ -1,0 +1,21 @@
+# Secrets - NEVER commit!
+serviceAccountKey.json
+*.env
+.env*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+
+# Data (downloaded at runtime)
+data/embeddings/*.npy
+data/known_faces/
+data/attendance.csv
+
+# Temp
+temp_uploads/*
+!temp_uploads/.gitkeep
