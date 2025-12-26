@@ -1,6 +1,5 @@
 // API Configuration
-// Using Next.js proxy - requests to /api/* are forwarded to localhost:8000/*
-// This works from any device (local, ngrok, etc.) because the proxy runs server-side
-const API_BASE_URL = '/api';
+// Uses environment variable in production, falls back to localhost for development
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 export default API_BASE_URL;
