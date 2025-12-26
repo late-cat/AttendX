@@ -6,15 +6,7 @@ const nextConfig = {
   // Hide the dev indicator (N button) in development
   devIndicators: false,
 
-  // Proxy API requests to the backend
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8000/:path*',
-      },
-    ];
-  },
+  // No rewrites needed - frontend calls backend URL directly via NEXT_PUBLIC_API_URL
 };
 
 export default nextConfig;
