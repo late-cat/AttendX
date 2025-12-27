@@ -821,50 +821,86 @@ h1 {
   }
 }
 
-/* ====== ATTENDANCE PROGRESS BAR ====== */
-.attendance-bar-container {
+/* ====== STUDENT LIQUID CARD ====== */
+.student-liquid-card {
   position: relative;
-  width: 100px;
-  height: 26px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   overflow: hidden;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-.attendance-bar-fill {
-  height: 100%;
-  border-radius: 7px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+.student-liquid-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-.attendance-bar-fill.green {
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.7), rgba(34, 197, 94, 0.4));
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
-}
-
-.attendance-bar-fill.yellow {
-  background: linear-gradient(90deg, rgba(234, 179, 8, 0.7), rgba(234, 179, 8, 0.4));
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
-}
-
-.attendance-bar-fill.red {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.7), rgba(239, 68, 68, 0.4));
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
-}
-
-.attendance-text {
+/* Liquid fill background */
+.student-liquid-card::before {
+  content: '';
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: var(--fill-percent, 0%);
+  height: 100%;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 0;
+}
+
+/* Animated wave edge effect */
+.student-liquid-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--fill-percent, 0%);
+  transform: translateX(-50%);
+  width: 30px;
+  height: 100%;
+  background: inherit;
+  filter: blur(8px);
+  opacity: 0.6;
+  z-index: 0;
+  animation: liquidPulse 2s ease-in-out infinite;
+}
+
+/* Color variants */
+.student-liquid-card.liquid-green::before {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.35), rgba(34, 197, 94, 0.15));
+}
+
+.student-liquid-card.liquid-yellow::before {
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.35), rgba(234, 179, 8, 0.15));
+}
+
+.student-liquid-card.liquid-red::before {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.35), rgba(239, 68, 68, 0.15));
+}
+
+/* Content layer */
+.student-card-content {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: white;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  letter-spacing: 0.02em;
+  justify-content: space-between;
+  padding: 12px 14px;
+  gap: 12px;
+}
+
+/* Subtle pulse animation at liquid edge */
+@keyframes liquidPulse {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translateX(-50%) scaleX(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: translateX(-50%) scaleX(1.2);
+  }
 }

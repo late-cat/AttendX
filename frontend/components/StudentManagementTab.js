@@ -187,39 +187,41 @@ export default function StudentManagementTab({ onDataChange }) {
                     </div>
                 ) : (
                     <div className="flex flex-col gap-3">
-                        {students.map((student) => (
-                            <div
-                                key={student.name}
-                                className="flex items-center justify-between p-4 rounded-lg bg-white/5 border border-glass-border hover:bg-white/10 transition-colors"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-bold">
-                                        {student.name?.[0]?.toUpperCase() || '?'}
-                                    </div>
-                                    <div>
-                                        <p className="font-medium">{student.name}</p>
-                                        <p className="text-xs text-secondary">
-                                            {student.image_count} photos • {student.has_embedding ? <span className="inline-flex items-center gap-1 text-green-400"><CheckIcon size="sm" /> Ready</span> : <span className="inline-flex items-center gap-1 text-yellow-400"><AlertIcon /> No embedding</span>}
-                                        </p>
-                                    </div>
-                                </div>
-                                {/* Attendance Progress Bar */}
-                                <div className="attendance-bar-container">
-                                    <div
-                                        className={`attendance-bar-fill ${student.attendance_pct >= 75 ? 'green' : student.attendance_pct >= 50 ? 'yellow' : 'red'}`}
-                                        style={{ width: `${student.attendance_pct || 0}%` }}
-                                    />
-                                    <span className="attendance-text">{student.attendance_pct || 0}%</span>
-                                </div>
-                                <button
-                                    onClick={() => handleDelete(student.name)}
-                                    disabled={deletingStudent === student.name}
-                                    className="px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors text-sm font-medium disabled:opacity-50"
+                        {students.map((student) => {
+                            const pct = student.attendance_pct || 0;
+                            const colorClass = pct >= 75 ? 'liquid-green' : pct >= 50 ? 'liquid-yellow' : 'liquid-red';
+                            return (
+                                <div
+                                    key={student.name}
+                                    className={`student-liquid-card ${colorClass}`}
+                                    style={{ '--fill-percent': `${pct}%` }}
                                 >
-                                    {deletingStudent === student.name ? 'Deleting...' : <span className="flex items-center gap-1.5"><TrashIcon /> Delete</span>}
-                                </button>
-                            </div>
-                        ))}
+                                    <div className="student-card-content">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                                                {student.name?.[0]?.toUpperCase() || '?'}
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="font-medium truncate">{student.name}</p>
+                                                <p className="text-xs text-white/60">
+                                                    {student.image_count} photos • {student.has_embedding ? <span className="text-green-400">✓ Ready</span> : <span className="text-yellow-400">⚠ No embedding</span>}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <span className="text-xs font-semibold px-2 py-1 rounded bg-black/20">{pct}%</span>
+                                            <button
+                                                onClick={() => handleDelete(student.name)}
+                                                disabled={deletingStudent === student.name}
+                                                className="px-2 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors text-xs font-medium disabled:opacity-50"
+                                            >
+                                                {deletingStudent === student.name ? '...' : '🗑'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
