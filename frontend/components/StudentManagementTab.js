@@ -58,9 +58,14 @@ export default function StudentManagementTab() {
                 body: formData
             });
 
-            if (!res.ok) throw new Error('Registration failed');
-
             const data = await res.json();
+            
+            if (!res.ok) {
+                // Show the actual error from backend (e.g., "multiple faces detected")
+                setMessage(data.detail || 'Registration failed');
+                return;
+            }
+
             setMessage(data.message);
             setStudentName('');
             setSelectedFiles([]);
@@ -68,12 +73,13 @@ export default function StudentManagementTab() {
             // Refresh student list
             fetchStudents();
         } catch (e) {
-            setMessage('Registration failed. Check console for details.');
+            setMessage('Registration failed. Network error or server offline.');
             console.error(e);
         } finally {
             setIsRegistering(false);
         }
     };
+
 
     const handleDelete = async (name) => {
         if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) {
