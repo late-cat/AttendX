@@ -190,7 +190,18 @@ export default function StudentManagementTab({ onDataChange }) {
                 </div>
 
                 {loadingStudents ? (
-                    <div className="text-center py-8 text-secondary">Loading students...</div>
+                    <div className="flex flex-col gap-3">
+                        {[1, 2, 3].map((i) => (
+                            <div key={i} className="student-skeleton-card">
+                                <div className="skeleton-avatar"></div>
+                                <div className="skeleton-text-group">
+                                    <div className="skeleton-text skeleton-name"></div>
+                                    <div className="skeleton-text skeleton-detail"></div>
+                                </div>
+                                <div className="skeleton-badge"></div>
+                            </div>
+                        ))}
+                    </div>
                 ) : students.length === 0 ? (
                     <div className="text-center py-8 border border-dashed border-glass-border rounded-lg bg-white/5">
                         <p className="text-secondary">No students registered yet.</p>
