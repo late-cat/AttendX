@@ -61,7 +61,6 @@ export default function StudentManagementTab({ onDataChange }) {
             const data = await res.json();
 
             if (!res.ok) {
-                // Show the actual error from backend (e.g., "multiple faces detected")
                 setMessage(data.detail || 'Registration failed');
                 return;
             }
@@ -213,9 +212,19 @@ export default function StudentManagementTab({ onDataChange }) {
                                             <button
                                                 onClick={() => handleDelete(student.name)}
                                                 disabled={deletingStudent === student.name}
-                                                className="px-2 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors text-xs font-medium disabled:opacity-50"
+                                                className="glass-delete-btn disabled:opacity-50"
+                                                title="Delete student"
                                             >
-                                                {deletingStudent === student.name ? '...' : '🗑'}
+                                                {deletingStudent === student.name ? (
+                                                    <span className="text-xs">...</span>
+                                                ) : (
+                                                    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <polyline points="3 6 5 6 21 6"></polyline>
+                                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                        <line x1="10" y1="11" x2="10" y2="17"></line>
+                                                        <line x1="14" y1="11" x2="14" y2="17"></line>
+                                                    </svg>
+                                                )}
                                             </button>
                                         </div>
                                     </div>

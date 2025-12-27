@@ -863,20 +863,32 @@ h1 {
   filter: blur(8px);
   opacity: 0.6;
   z-index: 0;
-  animation: liquidPulse 2s ease-in-out infinite;
+  animation: liquidWave 3s ease-in-out infinite;
 }
 
 /* Color variants */
 .student-liquid-card.liquid-green::before {
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.35), rgba(34, 197, 94, 0.15));
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.4), rgba(34, 197, 94, 0.2));
+}
+
+.student-liquid-card.liquid-green::after {
+  background: rgba(34, 197, 94, 0.5);
 }
 
 .student-liquid-card.liquid-yellow::before {
-  background: linear-gradient(90deg, rgba(234, 179, 8, 0.35), rgba(234, 179, 8, 0.15));
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.4), rgba(234, 179, 8, 0.2));
+}
+
+.student-liquid-card.liquid-yellow::after {
+  background: rgba(234, 179, 8, 0.5);
 }
 
 .student-liquid-card.liquid-red::before {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.35), rgba(239, 68, 68, 0.15));
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.4), rgba(239, 68, 68, 0.2));
+}
+
+.student-liquid-card.liquid-red::after {
+  background: rgba(239, 68, 68, 0.5);
 }
 
 /* Content layer */
@@ -890,17 +902,65 @@ h1 {
   gap: 12px;
 }
 
-/* Subtle pulse animation at liquid edge */
-@keyframes liquidPulse {
+/* Wave animation for liquid edge */
+@keyframes liquidWave {
 
   0%,
   100% {
-    opacity: 0.4;
-    transform: translateX(-50%) scaleX(1);
+    opacity: 0.3;
+    transform: translateX(-50%) translateY(0) scaleX(1);
+  }
+
+  25% {
+    opacity: 0.6;
+    transform: translateX(-50%) translateY(-3px) scaleX(1.3);
   }
 
   50% {
-    opacity: 0.7;
-    transform: translateX(-50%) scaleX(1.2);
+    opacity: 0.5;
+    transform: translateX(-50%) translateY(2px) scaleX(0.8);
   }
+
+  75% {
+    opacity: 0.7;
+    transform: translateX(-50%) translateY(-2px) scaleX(1.2);
+  }
+}
+
+/* Glass Delete Button (macOS style) */
+.glass-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
+.glass-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  transform: scale(1.05);
+}
+
+.glass-delete-btn:active {
+  transform: scale(0.95);
+}
+
+.glass-delete-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke: rgba(255, 255, 255, 0.7);
+  transition: stroke 0.2s;
+}
+
+.glass-delete-btn:hover svg {
+  stroke: #f87171;
 }
