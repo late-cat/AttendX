@@ -123,14 +123,12 @@ export default function Home() {
     }
   };
 
-  // Initial Fetch & Polling - Only when authenticated
+  // Fetch on tab switch - Only when authenticated
   useEffect(() => {
     // Don't fetch until auth is complete and user is logged in
     if (loading || !user) return;
 
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 5000); // Refresh every 5s
-    return () => clearInterval(interval);
   }, [activeTab, loading, user]);
 
 
