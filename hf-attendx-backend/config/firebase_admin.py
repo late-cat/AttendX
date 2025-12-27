@@ -11,9 +11,17 @@ import firebase_admin
 from firebase_admin import credentials, storage, firestore
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import random
 
 logger = logging.getLogger(__name__)
+
+# IST Timezone (UTC+5:30) - Used for consistent date handling
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_ist_now():
+    """Get current datetime in IST timezone."""
+    return datetime.now(IST)
 
 # Global bucket reference
 _bucket = None
@@ -384,13 +392,14 @@ def save_attendance_log(name: str, date: str, time: str) -> bool:
             'date': date,
             'time': time,
             'timestamp': firestore.SERVER_TIMESTAMP,
-            'created_at': datetime.now().isoformat()
+            'created_at': get_ist_now().isoformat()
         })
         
         logger.info(f"✅ Saved attendance log to Firestore: {name} on {date}")
         
-        # Cleanup old logs (older than 15 days) on each write
-        cleanup_old_logs(days=15)
+        # Cleanup old logs occasionally (5% chance) to avoid extra reads on every write
+        if random.random() < 0.05:
+            cleanup_old_logs(days=15)
         
         return True
         
@@ -416,7 +425,7 @@ def get_attendance_logs(days: int = None) -> list:
         
         # Filter by date if days specified
         if days:
-            cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+            cutoff_date = (get_ist_now() - timedelta(days=days)).strftime('%Y-%m-%d')
             query = query.where('date', '>=', cutoff_date)
         
         docs = query.stream()
@@ -435,6 +444,42 @@ def get_attendance_logs(days: int = None) -> list:
         
     except Exception as e:
         logger.error(f"❌ Failed to fetch attendance logs: {e}")
+        return []
+
+
+def get_attendance_logs_by_date(date: str) -> list:
+    """
+    Fetch attendance logs for a specific date only.
+    Much more efficient than fetching all and filtering client-side.
+    
+    Args:
+        date: Date string (YYYY-MM-DD format)
+    
+    Returns:
+        List of attendance logs for that date
+    """
+    try:
+        db = get_firestore_db()
+        
+        docs = db.collection('attendance_logs')\
+                 .where('date', '==', date)\
+                 .order_by('time', direction=firestore.Query.DESCENDING)\
+                 .stream()
+        
+        logs = []
+        for doc in docs:
+            data = doc.to_dict()
+            logs.append({
+                'Name': data.get('name', ''),
+                'Date': data.get('date', ''),
+                'Time': data.get('time', '')
+            })
+        
+        logger.info(f"✅ Fetched {len(logs)} logs for date {date}")
+        return logs
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to fetch logs for date {date}: {e}")
         return []
 
 
@@ -478,7 +523,7 @@ def get_today_attendance() -> dict:
     """
     try:
         db = get_firestore_db()
-        today_str = datetime.now().strftime('%Y-%m-%d')
+        today_str = get_ist_now().strftime('%Y-%m-%d')
         
         docs = db.collection('attendance_logs').where('date', '==', today_str).stream()
         
@@ -520,7 +565,7 @@ def cleanup_old_logs(days: int = 15) -> int:
     """
     try:
         db = get_firestore_db()
-        cutoff_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+        cutoff_date = (get_ist_now() - timedelta(days=days)).strftime('%Y-%m-%d')
         
         # Find old logs
         old_docs = db.collection('attendance_logs').where('date', '<', cutoff_date).stream()
@@ -550,7 +595,7 @@ def clear_today_attendance_firestore() -> int:
     """
     try:
         db = get_firestore_db()
-        today_str = datetime.now().strftime('%Y-%m-%d')
+        today_str = get_ist_now().strftime('%Y-%m-%d')
         
         docs = db.collection('attendance_logs').where('date', '==', today_str).stream()
         

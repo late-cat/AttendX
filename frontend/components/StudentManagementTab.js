@@ -4,7 +4,7 @@ import {
     UserPlusIcon, CheckIcon, UsersIcon, AlertIcon, TrashIcon
 } from '../lib/icons';
 
-export default function StudentManagementTab() {
+export default function StudentManagementTab({ onDataChange }) {
     const [studentName, setStudentName] = useState('');
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [isRegistering, setIsRegistering] = useState(false);
@@ -59,7 +59,7 @@ export default function StudentManagementTab() {
             });
 
             const data = await res.json();
-            
+
             if (!res.ok) {
                 // Show the actual error from backend (e.g., "multiple faces detected")
                 setMessage(data.detail || 'Registration failed');
@@ -70,8 +70,9 @@ export default function StudentManagementTab() {
             setStudentName('');
             setSelectedFiles([]);
 
-            // Refresh student list
+            // Refresh student list and notify parent
             fetchStudents();
+            if (onDataChange) onDataChange();
         } catch (e) {
             setMessage('Registration failed. Network error or server offline.');
             console.error(e);
@@ -98,8 +99,9 @@ export default function StudentManagementTab() {
             const data = await res.json();
             setMessage(data.message);
 
-            // Remove from local state
+            // Remove from local state and notify parent
             setStudents(prev => prev.filter(s => s.name !== name));
+            if (onDataChange) onDataChange();
         } catch (e) {
             setMessage('Delete failed. Check console for details.');
             console.error(e);

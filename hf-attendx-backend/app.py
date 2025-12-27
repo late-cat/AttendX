@@ -3,8 +3,9 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TF logging
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # Disable oneDNN
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import shutil
 import uuid
 import sys
@@ -14,6 +15,11 @@ import re
 import pandas as pd
 from datetime import datetime
 import time
+
+# Rate limiting
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Fix imports for deployment - add parent directory to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -35,6 +41,7 @@ from config.firebase_admin import (
     # Firestore functions
     save_attendance_log,
     get_attendance_logs,
+    get_attendance_logs_by_date,  # NEW: Efficient single-date query
     get_today_attendance as get_today_attendance_firestore,
     clear_today_attendance_firestore,
     get_all_students_with_photo_counts,
@@ -48,7 +55,14 @@ from config.firebase_admin import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI()
+
+# Add rate limit error handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS configuration - explicitly list allowed origins
 ALLOWED_ORIGINS = os.environ.get(
@@ -148,10 +162,27 @@ def get_status():
     return {"status": "online", "model": "ArcFace", "backend": "FastAPI"}
 
 @app.get("/attendance/logs")
-def get_logs():
-    """Return all attendance logs from Firestore (last 15 days)."""
+def get_logs(date: str = None, days: int = None):
+    """
+    Return attendance logs from Firestore with optional filtering.
+    
+    Args:
+        date: Specific date (YYYY-MM-DD). If provided, returns only that date.
+        days: Number of days to fetch (default: 7, max: 15). Ignored if date is provided.
+    
+    Examples:
+        /attendance/logs?date=2025-12-28  → Only Dec 28 logs
+        /attendance/logs?days=7           → Last 7 days
+        /attendance/logs                  → Default: last 7 days
+    """
     try:
-        logs = get_attendance_logs(days=15)
+        if date:
+            # Single date query - most efficient for "Today" filter
+            logs = get_attendance_logs_by_date(date)
+        else:
+            # Multi-day query with limit
+            query_days = min(days or 7, 15)  # Default 7, max 15
+            logs = get_attendance_logs(days=query_days)
         return {"logs": logs}
     except Exception as e:
         logger.error(f"❌ Failed to get logs: {e}")
@@ -184,7 +215,8 @@ def get_today_logs():
         return {"logs": [], "stats": {"present": 0, "total_entries": 0}, "error": str(e)}
 
 @app.post("/recognize")
-async def recognize_api(file: UploadFile = File(...)):
+@limiter.limit("20/minute")
+async def recognize_api(request: Request, file: UploadFile = File(...)):
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
     
@@ -234,7 +266,8 @@ async def recognize_api(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/register-student")
-async def register_student(name: str = Form(...), files: list[UploadFile] = File(...)):
+@limiter.limit("20/minute")
+async def register_student(request: Request, name: str = Form(...), files: list[UploadFile] = File(...)):
     """Register a new student with their face images."""
     if not name or not files:
         raise HTTPException(status_code=400, detail="Name and images required")
@@ -264,10 +297,10 @@ async def register_student(name: str = Form(...), files: list[UploadFile] = File
         
         # Step 2: Generate embeddings from local images
         logger.info(f"🧠 Generating embeddings for {name}...")
-        success = generate_embeddings_for_person(name, student_dir, EMBEDDINGS_DIR)
+        success, embed_message = generate_embeddings_for_person(name, student_dir, EMBEDDINGS_DIR)
         
         if not success:
-            raise HTTPException(status_code=400, detail="No valid faces found in images")
+            raise HTTPException(status_code=400, detail=embed_message)
         
         # Step 3: Upload images to Firebase Storage
         logger.info(f"☁️ Uploading images to Firebase for {name}...")
@@ -299,7 +332,7 @@ async def register_student(name: str = Form(...), files: list[UploadFile] = File
         
         return {
             "status": "success",
-            "message": f"Student {name} registered successfully",
+            "message": embed_message,  # Use detailed message from embedding generation
             "image_urls": image_urls,
             "embeddings_cached": True
         }
@@ -395,9 +428,6 @@ async def delete_student(student_name: str):
                 df.to_csv(ATTENDANCE_FILE, index=False)
                 deleted_attendance = original_count - len(df)
                 logger.info(f"✅ Deleted {deleted_attendance} attendance records for {student_name}")
-            except Exception as e:
-                logger.warning(f"⚠️ Attendance cleanup failed: {e}")
-        
             except Exception as e:
                 logger.warning(f"⚠️ Attendance cleanup failed: {e}")
         

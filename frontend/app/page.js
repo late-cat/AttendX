@@ -68,6 +68,13 @@ export default function Home() {
   const [logsFilter, setLogsFilter] = useState('today'); // 'today', '7days', 'all'
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Cache state - tracks what data has been loaded and when
+  const [cache, setCache] = useState({
+    overview: { loaded: false, timestamp: null },
+    logs: { loaded: false, filter: null, timestamp: null },
+  });
+  const CACHE_DURATION = 30 * 1000; // 30 seconds
+
   // Upload/Live State
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -87,49 +94,111 @@ export default function Home() {
   }, [sidebarOpen]);
 
 
-  // --- DATA FETCHING ---
-  const fetchDashboardData = async () => {
-    try {
-      // 1. Fetch System Status & Stats
-      try {
-        const resStatus = await fetch(`${API_BASE_URL}/system/status`);
-        const resStats = await fetch(`${API_BASE_URL}/stats`);
-        if (resStatus.ok) {
-          setStats(prev => ({ ...prev, system_status: 'Online' }));
-          if (resStats.ok) {
-            const statsData = await resStats.json();
-            setStats(prev => ({ ...prev, total_students: statsData.total_students }));
-          }
-        } else {
-          setStats(prev => ({ ...prev, system_status: 'Offline' }));
-        }
-      } catch { setStats(prev => ({ ...prev, system_status: 'Offline' })); }
+  // --- CACHE HELPERS ---
+  const isCacheValid = (cacheEntry) => {
+    if (!cacheEntry?.loaded || !cacheEntry?.timestamp) return false;
+    return Date.now() - cacheEntry.timestamp < CACHE_DURATION;
+  };
 
-      // 2. Fetch Today's Data
+  const invalidateCache = () => {
+    setCache({
+      overview: { loaded: false, timestamp: null },
+      logs: { loaded: false, filter: null, timestamp: null },
+    });
+  };
+
+  // --- DATA FETCHING (Lazy Loading) ---
+  const fetchOverviewData = async (force = false) => {
+    // Skip if cache is valid and not forcing refresh
+    if (!force && isCacheValid(cache.overview)) {
+      console.log('📦 Using cached overview data');
+      return;
+    }
+
+    try {
+      // System status
+      const resStatus = await fetch(`${API_BASE_URL}/system/status`);
+      setStats(prev => ({ ...prev, system_status: resStatus.ok ? 'Online' : 'Offline' }));
+
+      // Stats (student count)
+      if (resStatus.ok) {
+        const resStats = await fetch(`${API_BASE_URL}/stats`);
+        if (resStats.ok) {
+          const statsData = await resStats.json();
+          setStats(prev => ({ ...prev, total_students: statsData.total_students }));
+        }
+      }
+
+      // Today's attendance
       const resToday = await fetch(`${API_BASE_URL}/attendance/today`);
       const dataToday = await resToday.json();
       setTodayLogs(dataToday.logs || []);
       setStats(prev => ({ ...prev, present: dataToday.stats?.present || 0 }));
 
-      // 3. Fetch All Logs (only if on Logs tab to save bandwidth)
-      if (activeTab === 'logs') {
-        const resLogs = await fetch(`${API_BASE_URL}/attendance/logs`);
-        const dataLogs = await resLogs.json();
-        setAllLogs(dataLogs.logs || []);
-      }
-
+      // Update cache
+      setCache(prev => ({ ...prev, overview: { loaded: true, timestamp: Date.now() } }));
     } catch (e) {
-      console.error("Dashboard fetch error:", e);
+      console.error("Overview fetch error:", e);
+      setStats(prev => ({ ...prev, system_status: 'Offline' }));
     }
   };
 
-  // Fetch on tab switch - Only when authenticated
+  const fetchLogsData = async (filter, force = false) => {
+    // Skip if cache is valid for this filter and not forcing refresh
+    if (!force && cache.logs.loaded && cache.logs.filter === filter && isCacheValid(cache.logs)) {
+      console.log(`📦 Using cached logs for filter: ${filter}`);
+      return;
+    }
+
+    try {
+      let url = `${API_BASE_URL}/attendance/logs`;
+
+      // Build query based on filter - backend handles the filtering!
+      if (filter === 'today') {
+        const today = new Date().toISOString().split('T')[0];
+        url += `?date=${today}`;
+      } else if (filter === '7days') {
+        url += `?days=7`;
+      } else {
+        url += `?days=15`;  // 'all' = max 15 days
+      }
+
+      const res = await fetch(url);
+      const data = await res.json();
+      setAllLogs(data.logs || []);
+
+      // Update cache
+      setCache(prev => ({ ...prev, logs: { loaded: true, filter, timestamp: Date.now() } }));
+    } catch (e) {
+      console.error("Logs fetch error:", e);
+    }
+  };
+
+  // --- TAB-SPECIFIC DATA LOADING ---
   useEffect(() => {
-    // Don't fetch until auth is complete and user is logged in
     if (loading || !user) return;
 
-    fetchDashboardData();
+    // Load data based on which tab is active
+    switch (activeTab) {
+      case 'overview':
+      case 'today':
+        // Both tabs share today's data
+        fetchOverviewData();
+        break;
+      case 'logs':
+        // Fetch logs based on current filter
+        fetchLogsData(logsFilter);
+        break;
+      // 'live', 'students', 'settings' don't need data from here
+    }
   }, [activeTab, loading, user]);
+
+  // Re-fetch logs when filter changes (only if on logs tab)
+  useEffect(() => {
+    if (activeTab === 'logs' && !loading && user) {
+      fetchLogsData(logsFilter);
+    }
+  }, [logsFilter]);
 
 
   // --- HANDLERS ---
@@ -181,7 +250,11 @@ export default function Home() {
           status: hasSuccess ? 'success' : 'error',
           faces: data.details
         });
-        if (hasSuccess) setTimeout(() => fetchDashboardData(), 1000);
+        if (hasSuccess) {
+          // Invalidate cache and refresh data after successful attendance
+          invalidateCache();
+          setTimeout(() => fetchOverviewData(true), 1000);
+        }
       } else {
         setScanResult({ status: 'error', faces: [{ name: 'Unknown', message: data.message || 'No face detected' }] });
       }
@@ -213,7 +286,9 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         alert(`Success: ${data.message}`);
-        fetchDashboardData();
+        // Invalidate cache and refresh after clearing
+        invalidateCache();
+        fetchOverviewData(true);
       } else {
         alert('Error: Server error - Could not clear attendance');
       }
@@ -222,23 +297,11 @@ export default function Home() {
     }
   };
 
-  // Filter logs based on selected filter
+  // Filter logs - date filtering is now done by backend, only search filtering here
   const getFilteredLogs = () => {
-    let logs = [...allLogs].reverse();
-    const today = new Date();
+    let logs = [...allLogs];
 
-    if (logsFilter === 'today') {
-      const todayStr = today.toISOString().split('T')[0];
-      logs = logs.filter(log => log.Date === todayStr);
-    } else if (logsFilter === '7days') {
-      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-      logs = logs.filter(log => {
-        const logDate = new Date(log.Date);
-        return logDate >= weekAgo;
-      });
-    }
-
-    // Apply search filter
+    // Only apply search filter (date filtering handled by backend)
     if (searchQuery.trim()) {
       logs = logs.filter(log =>
         log.Name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -446,7 +509,7 @@ export default function Home() {
 
 
       case 'students':
-        return <StudentManagementTab />;
+        return <StudentManagementTab onDataChange={invalidateCache} />;
 
       default:
         return <div className="p-10 text-center text-secondary flex flex-col items-center gap-3">{Icons.constructionLg} Feature coming soon</div>;

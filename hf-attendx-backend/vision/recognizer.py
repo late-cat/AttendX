@@ -1,9 +1,16 @@
 import numpy as np
 from deepface import DeepFace
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import pandas as pd
 import os
 import cv2
+
+# IST Timezone (UTC+5:30)
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def get_ist_now():
+    """Get current datetime in IST timezone."""
+    return datetime.now(IST)
 
 # Configuration
 # Pointing to the app root 'data' directory (sibling to vision folder)
@@ -58,7 +65,7 @@ def find_cosine_distance(source_representation, test_representation):
 
 def mark_attendance(name):
     """Log attendance to CSV file and Firestore."""
-    now = datetime.now()
+    now = get_ist_now()  # Use IST timezone
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
     
@@ -97,7 +104,7 @@ def mark_attendance(name):
 
 def mark_attendance_firestore(name):
     """Save attendance directly to Firestore (for use in cloud deployments)."""
-    now = datetime.now()
+    now = get_ist_now()  # Use IST timezone
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
     
