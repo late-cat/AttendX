@@ -22,7 +22,7 @@ export default function StudentManagementTab({ onDataChange }) {
 
     const fetchStudents = async () => {
         try {
-            const res = await fetch(`${API_BASE_URL}/students`);
+            const res = await fetch(`${API_BASE_URL}/students/with-attendance`);
             if (res.ok) {
                 const data = await res.json();
                 setStudents(data.students || []);
@@ -202,6 +202,14 @@ export default function StudentManagementTab({ onDataChange }) {
                                             {student.image_count} photos • {student.has_embedding ? <span className="inline-flex items-center gap-1 text-green-400"><CheckIcon size="sm" /> Ready</span> : <span className="inline-flex items-center gap-1 text-yellow-400"><AlertIcon /> No embedding</span>}
                                         </p>
                                     </div>
+                                </div>
+                                {/* Attendance Progress Bar */}
+                                <div className="attendance-bar-container">
+                                    <div
+                                        className={`attendance-bar-fill ${student.attendance_pct >= 75 ? 'green' : student.attendance_pct >= 50 ? 'yellow' : 'red'}`}
+                                        style={{ width: `${student.attendance_pct || 0}%` }}
+                                    />
+                                    <span className="attendance-text">{student.attendance_pct || 0}%</span>
                                 </div>
                                 <button
                                     onClick={() => handleDelete(student.name)}

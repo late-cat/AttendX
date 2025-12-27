@@ -381,6 +381,44 @@ def list_students():
         return {"students": [], "total": 0, "error": str(e)}
 
 
+@app.get("/students/with-attendance")
+def get_students_with_attendance():
+    """
+    Get all students with their attendance percentage (last 15 days).
+    Optimized: Single aggregated query instead of N+1 pattern.
+    """
+    try:
+        from collections import defaultdict
+        
+        # 1. Get all students from metadata
+        students = get_all_students_from_metadata()
+        
+        # 2. Get attendance logs for last 15 days (ONE efficient query)
+        logs = get_attendance_logs(days=15)
+        
+        # 3. Count unique days present per student
+        attendance_by_student = defaultdict(set)  # name -> set of dates
+        for log in logs:
+            attendance_by_student[log['Name']].add(log['Date'])
+        
+        # 4. Calculate percentage for each student
+        period_days = 15
+        for student in students:
+            days_present = len(attendance_by_student.get(student['name'], set()))
+            student['days_present'] = days_present
+            student['attendance_pct'] = round((days_present / period_days) * 100)
+        
+        logger.info(f"✅ Calculated attendance for {len(students)} students")
+        return {
+            "students": students,
+            "total": len(students),
+            "period_days": period_days
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to get students with attendance: {e}")
+        return {"students": [], "total": 0, "period_days": 15, "error": str(e)}
+
+
 @app.delete("/delete-student/{student_name}")
 async def delete_student(student_name: str):
     """Delete a student from local storage and Firebase."""
