@@ -14,18 +14,29 @@ export default function StudentManagementTab({ onDataChange }) {
     const [students, setStudents] = useState([]);
     const [loadingStudents, setLoadingStudents] = useState(true);
     const [deletingStudent, setDeletingStudent] = useState(null);
+    const [hasFetched, setHasFetched] = useState(false);
 
-    // Fetch students on mount
+    // Fetch students on mount (only if not already fetched)
     useEffect(() => {
-        fetchStudents();
-    }, []);
+        if (!hasFetched) {
+            fetchStudents();
+        }
+    }, [hasFetched]);
 
-    const fetchStudents = async () => {
+    const fetchStudents = async (forceRefresh = false) => {
+        // Skip if already loaded and not forcing refresh
+        if (hasFetched && !forceRefresh && students.length > 0) {
+            setLoadingStudents(false);
+            return;
+        }
+
+        setLoadingStudents(true);
         try {
             const res = await fetch(`${API_BASE_URL}/students/with-attendance`);
             if (res.ok) {
                 const data = await res.json();
                 setStudents(data.students || []);
+                setHasFetched(true);
             }
         } catch (e) {
             console.error("Failed to fetch students:", e);
@@ -70,7 +81,7 @@ export default function StudentManagementTab({ onDataChange }) {
             setSelectedFiles([]);
 
             // Refresh student list and notify parent
-            fetchStudents();
+            fetchStudents(true);
             if (onDataChange) onDataChange();
         } catch (e) {
             setMessage('Registration failed. Network error or server offline.');
