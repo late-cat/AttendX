@@ -330,6 +330,11 @@ async def register_student(request: Request, name: str = Form(...), files: list[
         except Exception as e:
             logger.warning(f"⚠️ Failed to update metadata: {e}")
         
+        # Step 7: Invalidate attendance cache
+        global _attendance_cache
+        _attendance_cache["data"] = None
+        _attendance_cache["timestamp"] = 0
+        
         return {
             "status": "success",
             "message": embed_message,  # Use detailed message from embedding generation
@@ -381,12 +386,30 @@ def list_students():
         return {"students": [], "total": 0, "error": str(e)}
 
 
+# In-memory cache for student attendance data
+_attendance_cache = {
+    "data": None,
+    "timestamp": 0,
+    "ttl": 300  # 5 minutes cache
+}
+
 @app.get("/students/with-attendance")
-def get_students_with_attendance():
+def get_students_with_attendance(refresh: bool = False):
     """
     Get all students with their attendance percentage (last 15 days).
-    Optimized: Single aggregated query instead of N+1 pattern.
+    Optimized: Cached for 5 minutes to reduce Firestore reads.
+    
+    Args:
+        refresh: Force refresh cache if True
     """
+    global _attendance_cache
+    
+    # Check cache validity
+    cache_age = time.time() - _attendance_cache["timestamp"]
+    if not refresh and _attendance_cache["data"] and cache_age < _attendance_cache["ttl"]:
+        logger.info(f"📦 Serving cached attendance data (age: {int(cache_age)}s)")
+        return _attendance_cache["data"]
+    
     try:
         from collections import defaultdict
         
@@ -408,12 +431,18 @@ def get_students_with_attendance():
             student['days_present'] = days_present
             student['attendance_pct'] = round((days_present / period_days) * 100)
         
-        logger.info(f"✅ Calculated attendance for {len(students)} students")
-        return {
+        result = {
             "students": students,
             "total": len(students),
             "period_days": period_days
         }
+        
+        # Update cache
+        _attendance_cache["data"] = result
+        _attendance_cache["timestamp"] = time.time()
+        
+        logger.info(f"✅ Calculated attendance for {len(students)} students (cache refreshed)")
+        return result
     except Exception as e:
         logger.error(f"❌ Failed to get students with attendance: {e}")
         return {"students": [], "total": 0, "period_days": 15, "error": str(e)}
@@ -478,6 +507,11 @@ async def delete_student(student_name: str):
         # Reload embeddings cache so deleted student is no longer recognized
         reload_embeddings()
         logger.info(f"✅ Embeddings cache refreshed")
+        
+        # Invalidate attendance cache
+        global _attendance_cache
+        _attendance_cache["data"] = None
+        _attendance_cache["timestamp"] = 0
         
         return {
             "status": "success",
