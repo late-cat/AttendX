@@ -155,7 +155,9 @@ export default function Home() {
 
       // Build query based on filter - backend handles the filtering!
       if (filter === 'today') {
-        const today = new Date().toISOString().split('T')[0];
+        // Use local date (IST), not UTC - toISOString() returns UTC which is wrong at midnight IST
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         url += `?date=${today}`;
       } else if (filter === '7days') {
         url += `?days=7`;
