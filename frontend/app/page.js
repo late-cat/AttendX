@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/components/AuthContext';
 import { useRouter } from 'next/navigation';
 import WebcamCapture from '@/components/WebcamCapture';
 import API_BASE_URL from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils'; // Imported utilities
+import { db, doc, onSnapshot } from '@/lib/firebase'; // For sync version listener
 import {
   HomeIcon, CameraIcon, CalendarIcon, LogsIcon, UsersIcon, SettingsIcon,
   CheckCircleIcon, MonitorIcon, BellIcon,
@@ -20,6 +21,7 @@ import SystemStatusCard from '@/components/SystemStatusCard';
 import AttendanceTable from '@/components/AttendanceTable';
 import LogItem from '@/components/LogItem';
 import StudentManagementTab from '@/components/StudentManagementTab';
+import SyncStatusBanner from '@/components/SyncStatusBanner';
 
 // --- SVG ICONS (Local mapping for convenience in TABS and Props) ---
 const Icons = {
@@ -73,7 +75,11 @@ export default function Home() {
     overview: { loaded: false, timestamp: null },
     logs: { loaded: false, filter: null, timestamp: null },
   });
-  const CACHE_DURATION = 30 * 1000; // 30 seconds
+  const CACHE_DURATION = 60 * 1000; // 60 seconds (was 30s)
+
+  // Sync state - for real-time updates across devices
+  const [syncStatus, setSyncStatus] = useState('synced'); // 'synced' | 'syncing' | 'new-updates'
+  const localVersionRef = useRef(0); // Track version without causing re-renders
 
   // Upload/Live State
   const [isUploading, setIsUploading] = useState(false);
@@ -93,6 +99,33 @@ export default function Home() {
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
 
+  // --- SYNC VERSION LISTENER (Real-time updates across devices) ---
+  useEffect(() => {
+    if (!user) return;
+
+    // Listen to the sync version document in Firestore
+    const unsubscribe = onSnapshot(
+      doc(db, 'metadata', 'sync'),
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const newVersion = docSnap.data()?.version || 0;
+
+          // If we have a previous version and it changed, show update banner
+          if (localVersionRef.current > 0 && newVersion > localVersionRef.current) {
+            console.log(`🔔 Sync version changed: ${localVersionRef.current} → ${newVersion}`);
+            setSyncStatus('new-updates');
+          }
+
+          localVersionRef.current = newVersion;
+        }
+      },
+      (error) => {
+        console.error('Sync listener error:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
 
   // --- CACHE HELPERS ---
   const isCacheValid = (cacheEntry) => {
@@ -105,6 +138,28 @@ export default function Home() {
       overview: { loaded: false, timestamp: null },
       logs: { loaded: false, filter: null, timestamp: null },
     });
+  };
+
+  // Handle manual refresh (when user clicks "New updates available")
+  const handleSyncRefresh = async () => {
+    setSyncStatus('syncing');
+    invalidateCache();
+
+    // Refresh data based on current tab
+    switch (activeTab) {
+      case 'overview':
+      case 'today':
+        await fetchOverviewData(true);
+        break;
+      case 'logs':
+        await fetchLogsData(logsFilter, true);
+        break;
+      default:
+        // For other tabs, just refresh overview (affects stats)
+        await fetchOverviewData(true);
+    }
+
+    setSyncStatus('synced');
   };
 
   // --- DATA FETCHING (Lazy Loading) ---
@@ -255,7 +310,13 @@ export default function Home() {
         if (hasSuccess) {
           // Invalidate cache and refresh data after successful attendance
           invalidateCache();
-          setTimeout(() => fetchOverviewData(true), 1000);
+          // Increment local version so we don't show "new updates" for our own action
+          localVersionRef.current += 1;
+          setSyncStatus('syncing');
+          setTimeout(async () => {
+            await fetchOverviewData(true);
+            setSyncStatus('synced');
+          }, 1000);
         }
       } else {
         setScanResult({ status: 'error', faces: [{ name: 'Unknown', message: data.message || 'No face detected' }] });
@@ -617,13 +678,15 @@ export default function Home() {
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 md:ml-64 p-4 md:p-8 overflow-y-auto pt-24 md:pt-8">
         {/* Top Header - Welcome only on Overview */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-1">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-2">
           <div>
             <h2 className="text-lg md:text-xl font-semibold m-0">{TABS.find(t => t.id === activeTab)?.label}</h2>
             {activeTab === 'overview' && (
               <p className="text-xs md:text-sm text-secondary">Welcome back, Administrator.</p>
             )}
           </div>
+          {/* Sync Status Banner */}
+          <SyncStatusBanner status={syncStatus} onRefresh={handleSyncRefresh} />
         </header>
 
         {renderContent()}
