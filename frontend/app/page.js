@@ -11,7 +11,7 @@ import {
   HomeIcon, CameraIcon, CalendarIcon, LogsIcon, UsersIcon, SettingsIcon,
   CheckCircleIcon, MonitorIcon, BellIcon,
   VideoIcon, UploadIcon, DownloadIcon, TrashIcon, FileIcon,
-  CloseIcon, MenuIcon, ConstructionIcon
+  CloseIcon, MenuIcon, ConstructionIcon, InfoIcon
 } from '@/lib/icons';
 
 // Imported Components
@@ -22,6 +22,7 @@ import AttendanceTable from '@/components/AttendanceTable';
 import LogItem from '@/components/LogItem';
 import StudentManagementTab from '@/components/StudentManagementTab';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
+import AboutTab from '@/components/AboutTab';
 
 // --- SVG ICONS (Local mapping for convenience in TABS and Props) ---
 const Icons = {
@@ -32,6 +33,7 @@ const Icons = {
   logs: <LogsIcon />,
   users: <UsersIcon size="sm" />,
   settings: <SettingsIcon />,
+  info: <InfoIcon />,
   // Stat card icons
   usersLg: <UsersIcon size="lg" strokeColor="white" />,
   checkLg: <CheckCircleIcon />,
@@ -55,6 +57,7 @@ const TABS = [
   { id: 'logs', label: 'Attendance Logs', icon: Icons.logs },
   { id: 'students', label: 'Student Mgmt', icon: Icons.users },
   { id: 'settings', label: 'Settings', icon: Icons.settings },
+  { id: 'about', label: 'About', icon: Icons.info },
 ];
 
 export default function Home() {
@@ -573,6 +576,9 @@ export default function Home() {
 
       case 'students':
         return <StudentManagementTab onDataChange={invalidateCache} />;
+
+      case 'about':
+        return <AboutTab />;
 
       default:
         return <div className="p-10 text-center text-secondary flex flex-col items-center gap-3">{Icons.constructionLg} Feature coming soon</div>;
