@@ -685,8 +685,10 @@ export default function Home() {
               <p className="text-xs md:text-sm text-secondary">Welcome back, Administrator.</p>
             )}
           </div>
-          {/* Sync Status Banner */}
-          <SyncStatusBanner status={syncStatus} onRefresh={handleSyncRefresh} />
+          {/* Sync Status Banner - Only on Overview where aggregated data matters */}
+          {activeTab === 'overview' && (
+            <SyncStatusBanner status={syncStatus} onRefresh={handleSyncRefresh} />
+          )}
         </header>
 
         {renderContent()}
