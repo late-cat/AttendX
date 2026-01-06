@@ -661,6 +661,70 @@ def get_all_students_from_metadata() -> list:
         logger.error(f"❌ Failed to get students from metadata: {e}")
         return []
 
+# ==================== SYNC VERSION (CACHE INVALIDATION) ====================
+
+def bump_sync_version(action: str = "update") -> int:
+    """
+    Increment sync version - triggers cache invalidation for all clients.
+    Call this after any data mutation (attendance, register, delete).
+    
+    Args:
+        action: Type of action that triggered the bump
+                ("attendance", "register", "delete", "clear")
+    
+    Returns:
+        New version number
+    """
+    try:
+        db = get_firestore_db()
+        doc_ref = db.collection('metadata').document('sync')
+        
+        # Use transaction to safely increment
+        doc_ref.set({
+            'version': firestore.Increment(1),
+            'lastAction': action,
+            'timestamp': firestore.SERVER_TIMESTAMP
+        }, merge=True)
+        
+        # Get the new version to return
+        new_doc = doc_ref.get()
+        new_version = new_doc.to_dict().get('version', 1) if new_doc.exists else 1
+        
+        logger.info(f"🔄 Sync version bumped to {new_version} (action: {action})")
+        return new_version
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to bump sync version: {e}")
+        return -1
+
+
+def get_sync_version() -> dict:
+    """
+    Get current sync version and metadata.
+    
+    Returns:
+        Dictionary with version, lastAction, timestamp
+    """
+    try:
+        db = get_firestore_db()
+        doc = db.collection('metadata').document('sync').get()
+        
+        if doc.exists:
+            data = doc.to_dict()
+            return {
+                'version': data.get('version', 0),
+                'lastAction': data.get('lastAction', 'none'),
+                'timestamp': data.get('timestamp')
+            }
+        else:
+            # Initialize if doesn't exist
+            return {'version': 0, 'lastAction': 'none', 'timestamp': None}
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to get sync version: {e}")
+        return {'version': 0, 'lastAction': 'error', 'error': str(e)}
+
+
 # ==================== STORAGE QUERIES ====================
 
 def get_student_photo_count(student_name: str) -> int:

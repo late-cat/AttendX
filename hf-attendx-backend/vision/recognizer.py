@@ -63,8 +63,13 @@ def find_cosine_distance(source_representation, test_representation):
     c = np.sum(np.multiply(test_representation, test_representation))
     return 1 - (a / (np.sqrt(b) * np.sqrt(c)))
 
-def mark_attendance(name):
-    """Log attendance to CSV file and Firestore."""
+def mark_attendance(name, skip_sync=False):
+    """Log attendance to CSV file and Firestore.
+    
+    Args:
+        name: Student name
+        skip_sync: If True, skip bumping sync version (used for fallback calls)
+    """
     now = get_ist_now()  # Use IST timezone
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
@@ -93,8 +98,10 @@ def mark_attendance(name):
         
         # Also save to Firestore for persistence
         try:
-            from config.firebase_admin import save_attendance_log
+            from config.firebase_admin import save_attendance_log, bump_sync_version
             save_attendance_log(name, date_str, time_str)
+            if not skip_sync:
+                bump_sync_version("attendance")  # Notify all clients
         except Exception as e:
             print(f"Warning: Failed to save to Firestore: {e}")
         
@@ -109,20 +116,21 @@ def mark_attendance_firestore(name):
     time_str = now.strftime("%H:%M:%S")
     
     try:
-        from config.firebase_admin import save_attendance_log, check_attendance_exists
+        from config.firebase_admin import save_attendance_log, check_attendance_exists, bump_sync_version
         
         # Check if already marked today in Firestore (optimized)
         already_marked = check_attendance_exists(name, date_str)
         
         if not already_marked:
             save_attendance_log(name, date_str, time_str)
+            bump_sync_version("attendance")  # Notify all clients
             return True, "Marked present"
         else:
             return False, "Already marked present"
     except Exception as e:
         print(f"Firestore error: {e}")
-        # Fallback to local
-        return mark_attendance(name)
+        # Fallback to local - skip sync since Firestore is down anyway
+        return mark_attendance(name, skip_sync=True)
 
 def recognize_face(image_path):
     """Run face recognition on a single image path."""

@@ -48,7 +48,10 @@ from config.firebase_admin import (
     # Metadata optimization
     update_student_metadata,
     delete_student_metadata,
-    get_all_students_from_metadata
+    get_all_students_from_metadata,
+    # Sync version (cache invalidation)
+    bump_sync_version,
+    get_sync_version
 )
 
 # Setup logging
@@ -161,20 +164,45 @@ def get_storage_stats():
 def get_status():
     return {"status": "online", "model": "ArcFace", "backend": "FastAPI"}
 
+@app.get("/sync/version")
+def get_sync_version_endpoint():
+    """
+    Get current sync version for cache invalidation.
+    Frontend listens to this to know when to refetch data.
+    """
+    return get_sync_version()
+
 @app.get("/attendance/logs")
-def get_logs(date: str = None, days: int = None):
+def get_logs(date: str = None, days: int = None, refresh: bool = False):
     """
     Return attendance logs from Firestore with optional filtering.
+    Optimized: Cached for 60 seconds to reduce Firestore reads.
     
     Args:
         date: Specific date (YYYY-MM-DD). If provided, returns only that date.
         days: Number of days to fetch (default: 7, max: 15). Ignored if date is provided.
+        refresh: Force refresh cache if True.
     
     Examples:
         /attendance/logs?date=2025-12-28  → Only Dec 28 logs
         /attendance/logs?days=7           → Last 7 days
         /attendance/logs                  → Default: last 7 days
     """
+    global _logs_cache
+    
+    # Build cache key
+    cache_key = f"date_{date}" if date else f"days_{days or 7}"
+    
+    # Check cache validity
+    if not refresh:
+        cached_data = _logs_cache["data"].get(cache_key)
+        cached_time = _logs_cache["timestamp"].get(cache_key, 0)
+        cache_age = time.time() - cached_time
+        
+        if cached_data and cache_age < _logs_cache["ttl"]:
+            logger.info(f"📦 Serving cached logs for {cache_key} (age: {int(cache_age)}s)")
+            return {"logs": cached_data, "cached": True}
+    
     try:
         if date:
             # Single date query - most efficient for "Today" filter
@@ -183,6 +211,11 @@ def get_logs(date: str = None, days: int = None):
             # Multi-day query with limit
             query_days = min(days or 7, 15)  # Default 7, max 15
             logs = get_attendance_logs(days=query_days)
+        
+        # Update cache
+        _logs_cache["data"][cache_key] = logs
+        _logs_cache["timestamp"][cache_key] = time.time()
+        
         return {"logs": logs}
     except Exception as e:
         logger.error(f"❌ Failed to get logs: {e}")
@@ -195,6 +228,10 @@ def clear_today_attendance():
         deleted = clear_today_attendance_firestore()
         logger.info(f"🗑️ Cleared {deleted} attendance records for today")
         
+        # Invalidate caches and bump sync version
+        invalidate_all_caches()
+        bump_sync_version("clear")
+        
         return {
             "status": "success",
             "message": f"Cleared {deleted} records for today",
@@ -205,10 +242,29 @@ def clear_today_attendance():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/attendance/today")
-def get_today_logs():
-    """Return only today's attendance from Firestore."""
+def get_today_logs(refresh: bool = False):
+    """
+    Return only today's attendance from Firestore.
+    Optimized: Cached for 60 seconds to reduce Firestore reads.
+    
+    Args:
+        refresh: Force refresh cache if True.
+    """
+    global _today_cache
+    
+    # Check cache validity
+    cache_age = time.time() - _today_cache["timestamp"]
+    if not refresh and _today_cache["data"] and cache_age < _today_cache["ttl"]:
+        logger.info(f"📦 Serving cached today's attendance (age: {int(cache_age)}s)")
+        return {**_today_cache["data"], "cached": True}
+    
     try:
         result = get_today_attendance_firestore()
+        
+        # Update cache
+        _today_cache["data"] = result
+        _today_cache["timestamp"] = time.time()
+        
         return result
     except Exception as e:
         logger.error(f"❌ Failed to get today's logs: {e}")
@@ -330,10 +386,9 @@ async def register_student(request: Request, name: str = Form(...), files: list[
         except Exception as e:
             logger.warning(f"⚠️ Failed to update metadata: {e}")
         
-        # Step 7: Invalidate attendance cache
-        global _attendance_cache
-        _attendance_cache["data"] = None
-        _attendance_cache["timestamp"] = 0
+        # Step 7: Invalidate all caches and bump sync version
+        invalidate_all_caches()
+        bump_sync_version("register")
         
         return {
             "status": "success",
@@ -392,6 +447,31 @@ _attendance_cache = {
     "timestamp": 0,
     "ttl": 300  # 5 minutes cache
 }
+
+# Cache for today's attendance
+_today_cache = {
+    "data": None,
+    "timestamp": 0,
+    "ttl": 60  # 60 seconds cache
+}
+
+# Cache for attendance logs (keyed by filter)
+_logs_cache = {
+    "data": {},      # {filter_key: data}
+    "timestamp": {}, # {filter_key: timestamp}
+    "ttl": 60        # 60 seconds cache
+}
+
+def invalidate_all_caches():
+    """Invalidate all server-side caches. Called after data mutations."""
+    global _attendance_cache, _today_cache, _logs_cache
+    _attendance_cache["data"] = None
+    _attendance_cache["timestamp"] = 0
+    _today_cache["data"] = None
+    _today_cache["timestamp"] = 0
+    _logs_cache["data"] = {}
+    _logs_cache["timestamp"] = {}
+    logger.info("🗑️ All caches invalidated")
 
 @app.get("/students/with-attendance")
 def get_students_with_attendance(refresh: bool = False):
@@ -508,10 +588,9 @@ async def delete_student(student_name: str):
         reload_embeddings()
         logger.info(f"✅ Embeddings cache refreshed")
         
-        # Invalidate attendance cache
-        global _attendance_cache
-        _attendance_cache["data"] = None
-        _attendance_cache["timestamp"] = 0
+        # Invalidate all caches and bump sync version
+        invalidate_all_caches()
+        bump_sync_version("delete")
         
         return {
             "status": "success",
