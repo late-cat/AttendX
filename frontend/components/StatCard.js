@@ -3,7 +3,7 @@ import { GLASS_STYLES } from '../lib/styles';
 export default function StatCard({ label, value, icon }) {
     return (
         <div
-            className="relative p-5 md:p-6 rounded-[22px] bg-white/[0.08] border border-white/[0.2] flex flex-col items-center text-center gap-3 overflow-hidden transition-all duration-300 hover:-translate-y-1"
+            className="relative p-5 md:p-6 rounded-[22px] bg-white/[0.08] border border-white/[0.2] flex flex-col items-center text-center gap-3 overflow-hidden transition-[border-color,box-shadow] duration-300 hover:border-white/[0.35]"
             style={GLASS_STYLES.card}
         >
             {/* Glass gradient overlay */}
