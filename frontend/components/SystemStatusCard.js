@@ -5,8 +5,11 @@ export default function SystemStatusCard({ status }) {
     const isOnline = status === 'Online';
     return (
         <div
-            className="relative p-5 md:p-6 rounded-[22px] bg-white/[0.08] border border-white/[0.2] flex flex-col items-center text-center gap-3 overflow-hidden transition-all duration-300 hover:-translate-y-1"
-            style={GLASS_STYLES.card}
+            className="relative p-5 md:p-6 rounded-[22px] bg-white/[0.08] border border-white/[0.2] flex flex-col items-center text-center gap-3 overflow-hidden"
+            style={{
+                ...GLASS_STYLES.card,
+                transform: 'translateZ(0)', // Force GPU layer to prevent blur repaints
+            }}
         >
             <div className="absolute top-0 left-0 right-0 h-[55%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none rounded-t-[22px]" />
 
