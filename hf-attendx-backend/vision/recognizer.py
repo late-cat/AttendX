@@ -98,7 +98,7 @@ def mark_attendance(name, skip_sync=False):
         
         # Also save to Firestore for persistence
         try:
-            from config.firebase_admin import save_attendance_log, bump_sync_version
+            from services.firestore_db import save_attendance_log, bump_sync_version
             save_attendance_log(name, date_str, time_str)
             if not skip_sync:
                 bump_sync_version("attendance")  # Notify all clients
@@ -116,7 +116,7 @@ def mark_attendance_firestore(name):
     time_str = now.strftime("%H:%M:%S")
     
     try:
-        from config.firebase_admin import save_attendance_log, check_attendance_exists, bump_sync_version
+        from services.firestore_db import save_attendance_log, check_attendance_exists, bump_sync_version
         
         # Check if already marked today in Firestore (optimized)
         already_marked = check_attendance_exists(name, date_str)

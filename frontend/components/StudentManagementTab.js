@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import API_BASE_URL from '../lib/api';
+import API_BASE_URL, { authenticatedFetch } from '../lib/api';
 import {
     UserPlusIcon, CheckIcon, UsersIcon, AlertIcon, TrashIcon
 } from '../lib/icons';
@@ -64,7 +64,7 @@ export default function StudentManagementTab({ onDataChange }) {
             formData.append('name', studentName);
             selectedFiles.forEach(file => formData.append('files', file));
 
-            const res = await fetch(`${API_BASE_URL}/register-student`, {
+            const res = await authenticatedFetch('/register-student', {
                 method: 'POST',
                 body: formData
             });
@@ -100,7 +100,7 @@ export default function StudentManagementTab({ onDataChange }) {
         setDeletingStudent(name);
 
         try {
-            const res = await fetch(`${API_BASE_URL}/delete-student/${encodeURIComponent(name)}`, {
+            const res = await authenticatedFetch(`/delete-student/${encodeURIComponent(name)}`, {
                 method: 'DELETE'
             });
 

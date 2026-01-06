@@ -1,3 +1,4 @@
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Allow ngrok domain for dev
@@ -6,7 +7,15 @@ const nextConfig = {
   // Hide the dev indicator (N button) in development
   devIndicators: false,
 
-  // No rewrites needed - frontend calls backend URL directly via NEXT_PUBLIC_API_URL
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
+        pathname: '/attendx-572c8.firebasestorage.app/**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;
