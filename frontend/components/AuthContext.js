@@ -40,6 +40,8 @@ export const AuthProvider = ({ children }) => {
 
     const login = async () => {
         const provider = new GoogleAuthProvider();
+        // Force account selection every time (don't auto-select last used account)
+        provider.setCustomParameters({ prompt: 'select_account' });
         try {
             // Use popup for custom domains (ngrok, etc.) - redirect doesn't work well
             const { signInWithPopup } = await import('firebase/auth');
