@@ -5,9 +5,6 @@ const FIREBASE_TEAM_URL = 'https://storage.googleapis.com/attendx-572c8.firebase
 // Team Members
 export const TEAM = [
     { name: 'Bapi Mondal', role: 'Lead', photo: `${FIREBASE_TEAM_URL}/bapi_mondal.jpg`, pos: 'center' },
-    { name: 'Sourjo Ghosh', role: 'Developer', photo: `${FIREBASE_TEAM_URL}/sourjo_ghosh.jpg`, pos: 'center' },
-    { name: 'Mondrita Dutta', role: 'Developer', photo: `${FIREBASE_TEAM_URL}/mondrita_dutta.jpg`, pos: 'top' },
-    { name: 'Srijita Ghosh', role: 'Developer', photo: `${FIREBASE_TEAM_URL}/srijita_ghosh.jpg`, pos: 'top' },
 ];
 
 export const TEAM_NAMES = TEAM.map(m => m.name.toLowerCase());
