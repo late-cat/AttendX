@@ -9,7 +9,7 @@ export default function StatCard({ label, value, icon }) {
                 transform: 'translateZ(0)', // Force GPU layer to prevent blur repaints
             }}
         >
-            <div className="relative z-10 w-[50px] h-[50px] bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700"
+            <div className="relative z-10 w-[50px] h-[50px] bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center text-slate-500 shadow-[inset_0_2px_5px_rgba(0,0,0,0.06),0_1px_1px_rgba(255,255,255,1)]"
                 style={GLASS_STYLES.iconContainer}>
                 {icon}
             </div>

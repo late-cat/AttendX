@@ -17,8 +17,13 @@ export default function AttendanceTable({ data, viewType = 'students' }) {
                         <th className="px-6 py-4">{viewType === 'teachers' ? 'Teacher Name' : 'Student Name'}</th>
                         {viewType === 'students' && <th className="px-6 py-4">Class</th>}
                         <th className="px-6 py-4">Date</th>
-                        <th className="px-6 py-4">Time</th>
-                        {viewType === 'teachers' && <th className="px-6 py-4">Distance</th>}
+                        {viewType === 'students' && <th className="px-6 py-4">Time</th>}
+                        {viewType === 'teachers' && (
+                            <>
+                                <th className="px-6 py-4">Check In</th>
+                                <th className="px-6 py-4">Check Out</th>
+                            </>
+                        )}
                         <th className="px-6 py-4">Status</th>
                     </tr>
                 </thead>
@@ -44,11 +49,18 @@ export default function AttendanceTable({ data, viewType = 'students' }) {
                                 </td>
                             )}
                             <td className="px-6 py-4 text-slate-500">{formatDate(row.Date)}</td>
-                            <td className="px-6 py-4 font-mono text-slate-500">{formatTime(row.Time)}</td>
+                            {viewType === 'students' && (
+                                <td className="px-6 py-4 font-mono text-slate-500">{formatTime(row.Time)}</td>
+                            )}
                             {viewType === 'teachers' && (
-                                <td className="px-6 py-4 text-slate-500">
-                                    {row.Distance !== undefined ? `${Math.round(row.Distance)}m` : 'N/A'}
-                                </td>
+                                <>
+                                    <td className="px-6 py-4 font-mono text-slate-500">
+                                        {row['Check In'] && row['Check In'] !== '-' ? formatTime(row['Check In']) : '-'}
+                                    </td>
+                                    <td className="px-6 py-4 font-mono text-slate-500">
+                                        {row['Check Out'] && row['Check Out'] !== '-' ? formatTime(row['Check Out']) : '-'}
+                                    </td>
+                                </>
                             )}
                             <td className="px-6 py-4">
                                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">

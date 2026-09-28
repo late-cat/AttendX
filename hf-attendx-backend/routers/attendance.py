@@ -68,7 +68,7 @@ def clear_today_attendance_endpoint():
         raise HTTPException(status_code=500, detail=str(e))
 
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 class AttendanceRecord(BaseModel):
     name: str
@@ -81,10 +81,9 @@ class FinalizeAttendanceRequest(BaseModel):
     records: List[AttendanceRecord]
 
 class TeacherCheckInRequest(BaseModel):
-    teacher_id: str
     lat: float
     lng: float
-    image: str = None # base64 image string
+    image: Optional[str] = None # base64 image string
 
 # Example School Location (Should be in environment variables in production)
 SCHOOL_LAT = 22.621798 # Updated for testing
@@ -133,6 +132,7 @@ def teacher_check_in(request: TeacherCheckInRequest):
     from config.firebase_admin import get_ist_now, get_firestore_db
     from firebase_admin import firestore
     from vision.recognizer import recognize_face
+    from core.config import settings
     import base64
     import os
     import uuid
@@ -143,7 +143,7 @@ def teacher_check_in(request: TeacherCheckInRequest):
         raise HTTPException(status_code=403, detail=f"You are outside the school premises. (Distance: {int(distance)}m)")
         
     db = get_firestore_db()
-    teacher_name = request.teacher_id
+    teacher_name = None
     
     # Face verification if image provided
     if request.image:
@@ -176,21 +176,112 @@ def teacher_check_in(request: TeacherCheckInRequest):
             logger.error(f"❌ Face verification error: {e}")
             raise HTTPException(status_code=500, detail="Face verification failed")
             
+    if not teacher_name:
+         raise HTTPException(status_code=400, detail="Image is required for face verification to identify the teacher.")
+
     now = get_ist_now()
+    date_str = now.strftime("%Y-%m-%d")
     
     try:
-        db.collection('teacher_attendance').document().set({
+        # Check if already checked in today
+        existing = db.collection('teacher_attendance').where('name', '==', teacher_name).where('date', '==', date_str).get()
+        if existing and existing[0].to_dict().get('check_in_time'):
+            raise HTTPException(status_code=400, detail=f"You have already checked in today at {existing[0].to_dict().get('check_in_time')}.")
+            
+        doc_ref = db.collection('teacher_attendance').document()
+        doc_ref.set({
             'name': teacher_name,
-            'date': now.strftime("%Y-%m-%d"),
-            'time': now.strftime("%H:%M:%S"),
-            'lat': request.lat,
-            'lng': request.lng,
-            'distance_m': distance,
+            'date': date_str,
+            'check_in_time': now.strftime("%H:%M:%S"),
+            'check_in_lat': request.lat,
+            'check_in_lng': request.lng,
+            'check_in_distance_m': distance,
             'timestamp': firestore.SERVER_TIMESTAMP
         })
         return {"status": "success", "message": f"Checked in successfully as {teacher_name}."}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ Failed to check in teacher: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/teacher/check-out")
+def teacher_check_out(request: TeacherCheckInRequest):
+    """Check out a teacher if they are within the geofence and their face matches."""
+    from core.utils import calculate_distance
+    from config.firebase_admin import get_ist_now, get_firestore_db
+    from firebase_admin import firestore
+    from vision.recognizer import recognize_face
+    from core.config import settings
+    import base64
+    import os
+    import uuid
+    
+    distance = calculate_distance(request.lat, request.lng, SCHOOL_LAT, SCHOOL_LNG)
+    if distance > ALLOWED_RADIUS_METERS:
+        raise HTTPException(status_code=403, detail=f"You are outside the school premises. (Distance: {int(distance)}m)")
+        
+    db = get_firestore_db()
+    teacher_name = None
+    
+    # Face verification if image provided
+    if request.image:
+        try:
+            img_data = base64.b64decode(request.image.split(",")[1] if "," in request.image else request.image)
+            temp_path = os.path.join(settings.TEMP_DIR, f"teacher_{uuid.uuid4()}.jpg")
+            with open(temp_path, "wb") as f:
+                f.write(img_data)
+                
+            results = recognize_face(temp_path, save=False)
+            if os.path.exists(temp_path): os.remove(temp_path)
+            
+            face_matched = False
+            for res in results:
+                if res['status'] in ['present', 'marked', 'detected']:
+                    # Verify it's a teacher in the database
+                    teacher_doc = db.collection('teachers').document(res['name']).get()
+                    if teacher_doc.exists:
+                        face_matched = True
+                        teacher_name = res['name']
+                        break
+            
+            if not face_matched:
+                raise HTTPException(status_code=403, detail="Face not recognized or you are not registered as a teacher.")
+                
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"❌ Face verification error: {e}")
+            raise HTTPException(status_code=500, detail="Face verification failed")
+
+    if not teacher_name:
+         raise HTTPException(status_code=400, detail="Image is required for face verification to identify the teacher.")
+
+    now = get_ist_now()
+    date_str = now.strftime("%Y-%m-%d")
+    
+    try:
+        existing = db.collection('teacher_attendance').where('name', '==', teacher_name).where('date', '==', date_str).get()
+        if not existing:
+             raise HTTPException(status_code=400, detail="You must check in before checking out.")
+             
+        doc_id = existing[0].id
+        doc_data = existing[0].to_dict()
+        
+        if doc_data.get('check_out_time'):
+            raise HTTPException(status_code=400, detail=f"You have already checked out today at {doc_data.get('check_out_time')}.")
+            
+        db.collection('teacher_attendance').document(doc_id).update({
+            'check_out_time': now.strftime("%H:%M:%S"),
+            'check_out_lat': request.lat,
+            'check_out_lng': request.lng,
+            'check_out_distance_m': distance
+        })
+        return {"status": "success", "message": f"Checked out successfully as {teacher_name}."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to check out teacher: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/teacher/today")
@@ -207,8 +298,8 @@ def get_teacher_today_logs():
             logs.append({
                 'Name': data.get('name', 'Unknown'),
                 'Date': data.get('date'),
-                'Time': data.get('time'),
-                'Distance': data.get('distance_m')
+                'Check In': data.get('check_in_time', '-'),
+                'Check Out': data.get('check_out_time', '-')
             })
         return {"logs": logs}
     except Exception as e:
@@ -218,6 +309,7 @@ def get_teacher_today_logs():
 def get_teacher_all_logs():
     try:
         from config.firebase_admin import get_firestore_db
+        from firebase_admin import firestore
         db = get_firestore_db()
         docs = db.collection('teacher_attendance').order_by('date', direction=firestore.Query.DESCENDING).stream()
         
@@ -227,8 +319,8 @@ def get_teacher_all_logs():
             logs.append({
                 'Name': data.get('name', 'Unknown'),
                 'Date': data.get('date'),
-                'Time': data.get('time'),
-                'Distance': data.get('distance_m')
+                'Check In': data.get('check_in_time', '-'),
+                'Check Out': data.get('check_out_time', '-')
             })
         return {"logs": logs}
     except Exception as e:

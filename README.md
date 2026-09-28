@@ -1,45 +1,39 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.9+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python"/>
   <img src="https://img.shields.io/badge/Next.js-15-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js"/>
-  <img src="https://img.shields.io/badge/DeepFace-AI-FF6F00?style=for-the-badge&logo=tensorflow&logoColor=white" alt="DeepFace"/>
+  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI"/>
   <img src="https://img.shields.io/badge/Firebase-Cloud-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"/>
 </p>
 
 <h1 align="center">🎓 AttendX</h1>
-<h3 align="center">AI-Powered Smart Attendance System</h3>
+<h3 align="center">Next-Generation AI-Powered Smart Attendance System</h3>
 
 <p align="center">
   <em>No more roll calls. No more sign-in sheets. Just look at the camera.</em><br/><br/>
   A production-ready face recognition system that makes attendance<br/>
-  <strong>instant, accurate, and effortless</strong>.
+  <strong>instant, accurate, and completely effortless</strong>.
 </p>
 
 ---
 
-## 🧠 What Makes It Smart?
+## 🌟 The AttendX Difference
 
-### 🎯 State-of-the-Art AI Pipeline
-- **ArcFace Model** - Industry-leading face recognition with 99.5%+ accuracy on LFW benchmark
-- **RetinaFace Detector** - Robust face detection that works with angles, lighting, and partial occlusion
-- **Cosine Distance Matching** - Precise similarity scoring for reliable identification
+AttendX isn't just an attendance logger; it's a comprehensive, intelligent ecosystem designed for modern educational institutions. Built with an uncompromising focus on speed, accuracy, and user experience.
 
-### ⚡ Heavily Optimized for Speed
-- **Embedding Cache** - Pre-computed face embeddings stored as `.npy` files = instant matching
-- **Smart Reload** - Embeddings cached in memory, reloaded only when students are added/removed
-- **Lazy Loading** - AI models initialized once at startup, not per-request
-- **Minimal Overhead** - Recognition completes in <500ms on average hardware
+### 🧠 State-of-the-Art AI Pipeline
+- **ArcFace Model**: Industry-leading facial recognition achieving 99.5%+ accuracy on LFW benchmarks.
+- **RetinaFace Detector**: Highly robust multi-face detection handling varying angles, lighting, and occlusions in a single frame.
+- **Sub-Second Processing**: Embeddings are generated, cached (as `.npy` files), and evaluated using cosine distance for near-instant identification.
 
-### ☁️ Intelligent Cloud Sync
-- **Differential Sync** - Only uploads what's changed (new students, modified photos)
-- **Auto-Detection** - Detects added, deleted, or modified students automatically
-- **Bidirectional** - Local is source of truth, Firebase stays perfectly in sync
-- **Zero Redundancy** - Unchanged data is skipped, saving bandwidth and time
+### 🏫 Complete Institutional Management
+- **Smart Student Roster**: Granular attendance processing strictly filtered by Class and Section. Prevents accidental attendance logging for out-of-class students.
+- **Teacher Geo-Fencing**: Dedicated Teacher Check-in and Check-out workflows with GPS location enforcement (requires teachers to be within school premises).
+- **Dual Dashboard Logs**: Distinct, sortable logs separating Student attendance from Teacher timestamps.
 
-### 🔒 Production-Grade Security
-- **Path Traversal Protection** - Sanitized inputs prevent directory attacks
-- **CORS Configured** - Proper origin whitelisting for secure cross-origin requests
-- **Environment Variables** - No hardcoded secrets, all configs externalized
-- **Firebase Auth** - Secure Google OAuth, no custom auth vulnerabilities
+### 🎨 Premium "Tactile Paper" Interface
+- **Engraved Aesthetics**: The frontend features a stunning, bespoke "engraved paper" UI. Utilizing advanced CSS inset shadows, gradients, and custom SVG filters for a truly premium tactile feel.
+- **Responsive & Dynamic**: Beautifully smooth animations, glassmorphism overlays, and interactive 3D buttons that respond to every interaction.
+- **Intelligent Feedback**: Real-time sync banners, active system status LEDs, and clear visual indicators for detected/unrecognized faces.
 
 ---
 
@@ -47,22 +41,40 @@
 
 | Feature | Description |
 |---------|-------------|
-| 🔍 **Real-time Recognition** | Identify faces via webcam or photo upload |
-| 👥 **Multi-face Detection** | Recognize multiple students in one frame |
-| 📱 **Fully Responsive** | Works beautifully on desktop, tablet, mobile |
-| 🔐 **One-click Login** | Google Sign-In via Firebase Auth |
-| 📊 **Smart Dashboard** | Stats, logs, student management in one place |
-| 🗂️ **Attendance History** | Full logs with date/time, sortable & exportable |
-| ➕ **Easy Registration** | Just enter name + upload 3-5 photos |
-| 🗑️ **Clean Deletion** | Remove students from local + cloud in one click |
+| 🔍 **Real-Time Recognition** | Identify faces via live webcam feed or batch photo upload. |
+| 👥 **Multi-Face Detection** | Instantly recognize and process multiple students in one frame. |
+| 📍 **GPS Teacher Check-In** | Geo-fenced teacher attendance (Check-in/Check-out functionality). |
+| 🏫 **Class/Section Filtering** | Granular session selection preventing cross-class misidentification. |
+| 📊 **Dynamic Dashboard** | Live stats, interactive charts, and real-time activity feeds. |
+| 🗂️ **Exportable Logs** | Full historical attendance logs sortable by date and exportable to CSV. |
+| ☁️ **Differential Cloud Sync** | Intelligent two-way Firebase sync pushing only new/modified data. |
 
 ---
 
-## 🚀 Quick Start (5 Minutes)
+## 🏗️ Architecture & Tech Stack
+
+### Frontend (Next.js & React)
+- **Framework**: Next.js 15 (App Router)
+- **Styling**: Tailwind CSS (Custom customized for tactile UI)
+- **State Management**: React Hooks & Context API
+
+### Backend (FastAPI & Python)
+- **Framework**: FastAPI (Asynchronous, blazing fast)
+- **AI/ML**: `deepface` library (ArcFace / RetinaFace backend)
+- **Data Processing**: NumPy, OpenCV
+- **Caching**: Local filesystem `.npy` caching for O(1) embedding lookups
+
+### Database & Auth
+- **Infrastructure**: Firebase (Cloud Firestore & Storage)
+- **Authentication**: Firebase Auth (Google OAuth integration)
+
+---
+
+## 🚀 Quick Start (Local Setup)
 
 ### Prerequisites
 - Python 3.9+ & Node.js 18+
-- Firebase Project ([create one free](https://console.firebase.google.com))
+- A Firebase Project ([create one free](https://console.firebase.google.com))
 
 ### 1. Clone & Install
 
@@ -70,23 +82,27 @@
 git clone https://github.com/late-cat/AttendX.git
 cd AttendX
 
-# Backend
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+# Setup Backend Environment
+cd hf-attendx-backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+cd ..
 
-# Frontend
-cd frontend && npm install && cd ..
+# Setup Frontend Environment
+cd frontend
+npm install
+cd ..
 ```
 
-### 2. Firebase Setup
+### 2. Firebase Configuration
 
-**Backend** - Save your service account key to:
+**Backend**: Save your Firebase Admin SDK service account key to:
 ```
-backend/config/serviceAccountKey.json
+hf-attendx-backend/config/serviceAccountKey.json
 ```
 
-**Frontend** - Create `frontend/.env.local`:
+**Frontend**: Create a `.env.local` file in the `frontend/` directory:
 ```env
 NEXT_PUBLIC_FIREBASE_API_KEY=your_key
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -96,115 +112,40 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
 ```
 
-### 3. Run!
+### 3. Run the System
 
-**Terminal 1:**
+**Terminal 1 (Backend):**
 ```bash
-source .venv/bin/activate && python backend/app.py
+cd hf-attendx-backend
+source venv/bin/activate
+python app.py
 ```
 
-**Terminal 2:**
+**Terminal 2 (Frontend):**
 ```bash
-cd frontend && npm run dev
-```
-
-🎉 **Open [localhost:3000](http://localhost:3000)**
-
----
-
-## 🎪 Demo Mode (ngrok)
-
-Share your local app with judges/classmates instantly:
-
-```bash
-
-```ngrok http 3000 --domain=unflowering-unexplicitly-scarlet.ngrok-free.dev
-
-> 💡 Add your ngrok domain to Firebase → Authentication → Authorized domains
-```bash
-source .venv/bin/activate
-
-pkill -f "next dev"
+cd frontend
 npm run dev
 ```
----
 
-## 📁 Project Structure
-
-```
-AttendX/
-├── backend/
-│   ├── app.py              # FastAPI server (10+ endpoints)
-│   ├── vision/
-│   │   ├── recognizer.py   # Face matching + attendance logic
-│   │   └── embedding_utils.py  # Embedding generation
-│   └── scripts/
-│       └── sync_to_firebase.py  # Smart cloud sync
-├── frontend/               # Next.js 15 + React 19 dashboard
-├── data/
-│   ├── known_faces/        # Student photos (organized by name)
-│   ├── embeddings/         # Pre-computed face vectors (.npy)
-│   └── attendance.csv      # Local attendance records
-└── requirements.txt
-```
+Visit `http://localhost:3000` in your browser.
 
 ---
 
-## 🔧 Commands
+## 🔒 Security & Privacy
 
-| Command | What it does |
-|---------|--------------|
-| `python backend/app.py` | Start backend API (port 8000) |
-| `cd frontend && npm run dev` | Start dashboard (port 3000) |
-| `python backend/scripts/sync_to_firebase.py` | Sync local → cloud |
-
----
-
-## 📱 Usage Flow
-
-```
-1. 🔐 Login → Google Sign-In
-2. 👤 Register → Add student name + 3-5 face photos
-3. 📸 Capture → Webcam or upload photo
-4. ✅ Done → Attendance marked automatically!
-```
+AttendX is built with a security-first mindset:
+- **Zero Local Data Leakage**: Face embeddings are mathematically hashed arrays; raw biometric images can be easily decoupled from the database.
+- **Path Traversal Protection**: Sanitized inputs and strictly validated file paths.
+- **Environment Isolation**: No hardcoded secrets; API keys and Service Accounts are fully externalized.
 
 ---
 
-## ⚙️ Fine-Tuning
-
-Adjust recognition strictness in `backend/vision/recognizer.py`:
-```python
-THRESHOLD = 0.50  # Lower = stricter matching
-                  # 0.40 = very strict (may miss some)
-                  # 0.50 = balanced (recommended)
-                  # 0.60 = lenient (may have false positives)
-```
+## 🔮 Future Scalability
+AttendX's modular architecture is designed to scale from a single classroom to an entire district. The database schema inherently supports partitioning by `School_ID`, enabling multi-tenant enterprise deployments without structural rewrites.
 
 ---
-
-## �️ Tech Stack
-
-| Layer | Technologies |
-|-------|--------------|
-| **Frontend** | Next.js 15, React 19, Tailwind CSS 4 |
-| **Backend** | Python, FastAPI, Uvicorn |
-| **AI** | DeepFace, TensorFlow 2.15, OpenCV |
-| **Cloud** | Firebase Auth + Storage |
-
----
-
-## 🙏 Built With
-
-- [DeepFace](https://github.com/serengil/deepface) - Face recognition library
-- [FastAPI](https://fastapi.tiangolo.com/) - Modern Python API
-- [Next.js](https://nextjs.org/) - React framework
-- [Firebase](https://firebase.google.com/) - Auth & cloud storage
-
----
-
 <p align="center">
-  <strong>🏆 Made with ❤️ for Hackathons</strong><br/>
-  <sub>Production-ready • Optimized • Intelligent</sub><br/><br/>
-  <sub>MIT License</sub>
+  <br/>
+  <b>AttendX — Redefining Smart Attendance</b><br/>
+  <i>Built for Hackathon 2026</i>
 </p>

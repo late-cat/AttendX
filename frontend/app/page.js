@@ -99,6 +99,8 @@ export default function Home() {
   const [captureMode, setCaptureMode] = useState('student'); // 'student' | 'teacher'
   const [scanResult, setScanResult] = useState(null); // { status: 'success'|'error', faces: [...] }
   const [imagePreview, setImagePreview] = useState(null);
+  const [locationStatus, setLocationStatus] = useState(null); // null, 'verifying', 'verified', 'error'
+  const [locationMessage, setLocationMessage] = useState("");
 
   // Contextual Attendance & Review State
   const [sessionClass, setSessionClass] = useState("");
@@ -333,6 +335,31 @@ export default function Home() {
     processImage(file);
   };
 
+  const handleTeacherActionClick = (action) => {
+    setCaptureMode(action);
+    setShowWebcam(true);
+    setLocationStatus('verifying');
+    setLocationMessage("Verifying location...");
+    
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                // In a real app, calculate distance to school coords here
+                setLocationStatus('verified');
+                setLocationMessage("Location Verified");
+            },
+            (error) => {
+                setLocationStatus('error');
+                setLocationMessage(error.message || "Failed to verify location");
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    } else {
+        setLocationStatus('error');
+        setLocationMessage("Geolocation not supported");
+    }
+  };
+
   const handleWebcamCapture = (blob) => {
     setShowWebcam(false);
     const file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
@@ -342,8 +369,8 @@ export default function Home() {
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
 
-    if (captureMode === 'teacher') {
-       processTeacherCheckIn(blob);
+    if (captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout') {
+       processTeacherCheckIn(blob, captureMode);
     } else {
        processImage(file);
     }
@@ -375,16 +402,22 @@ export default function Home() {
 
       if (data.details && data.details.length > 0) {
         const detectedFaces = data.details.filter(d => d.status === 'detected' || d.status === 'present' || d.status === 'marked');
+        const classStudents = allStudents.filter(s => s.class_name == sessionClass && s.section == sessionSection);
+        const classStudentNames = classStudents.map(s => s.name);
+        
+        const validDetectedFaces = detectedFaces.filter(f => classStudentNames.includes(f.name));
+        const anomalyFaces = detectedFaces.filter(f => !classStudentNames.includes(f.name));
         
         setScanResult({
-          status: detectedFaces.length > 0 ? 'success' : 'error',
-          faces: data.details
+          status: validDetectedFaces.length > 0 ? 'success' : (anomalyFaces.length > 0 ? 'warning' : 'error'),
+          faces: data.details,
+          validFaces: validDetectedFaces,
+          anomalyFaces: anomalyFaces
         });
         
-        if (detectedFaces.length > 0) {
-           const detectedNames = detectedFaces.map(f => f.name);
-           const classStudents = allStudents.filter(s => s.class_name == sessionClass && s.section == sessionSection);
-           const missing = classStudents.filter(s => !detectedNames.includes(s.name));
+        if (detectedFaces.length > 0 || classStudents.length > 0) {
+           const validDetectedNames = validDetectedFaces.map(f => f.name);
+           const missing = classStudents.filter(s => !validDetectedNames.includes(s.name));
            
            setMissingStudents(missing);
            setReviewMode(true);
@@ -522,7 +555,7 @@ export default function Home() {
 
 
 
-  const processTeacherCheckIn = (blob) => {
+  const processTeacherCheckIn = (blob, actionType) => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser.");
       return;
@@ -539,11 +572,14 @@ export default function Home() {
         navigator.geolocation.getCurrentPosition(async (position) => {
            try {
               setUploadStatus("Verifying identity & location...");
-              const res = await fetch(`${API_BASE_URL}/attendance/teacher/check-in`, {
+              
+              // Map actionType ('teacher_checkin', 'teacher_checkout') to endpoint URL
+              const endpointAction = actionType === 'teacher_checkout' ? 'check-out' : 'check-in';
+              
+              const res = await fetch(`${API_BASE_URL}/attendance/teacher/${endpointAction}`, {
                  method: 'POST',
                  headers: { 'Content-Type': 'application/json' },
                  body: JSON.stringify({
-                    teacher_id: user?.email || "Unknown_Teacher",
                     lat: position.coords.latitude,
                     lng: position.coords.longitude,
                     image: base64data
@@ -590,7 +626,7 @@ export default function Home() {
             <div className="col-span-full md:col-span-2 glass-panel p-6 mt-4">
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
+                  <div className="w-10 h-10 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center text-slate-500 shadow-[inset_0_2px_5px_rgba(0,0,0,0.06),0_1px_1px_rgba(255,255,255,1)]">
                     {Icons.bellLg}
                   </div>
                   <h3 className="text-base font-semibold m-0">Recent Activity</h3>
@@ -621,52 +657,89 @@ export default function Home() {
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                     {/* Detected Students Column */}
-                    <div className="bg-white/5 border border-glass-border rounded-xl p-6">
-                       <h3 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
-                          <CheckCircleIcon /> Detected as Present ({scanResult.faces.filter(f => f.status === 'detected' || f.status === 'present' || f.status === 'marked').length})
-                       </h3>
-                       <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-2">
-                          {scanResult.faces.filter(f => f.status === 'detected' || f.status === 'present' || f.status === 'marked').map((face, idx) => (
-                             <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                                <span className="font-medium">{face.name}</span>
-                                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">AI Detected</span>
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                       <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-5">
+                          <div className="p-2 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                             <CheckCircleIcon />
+                          </div>
+                          <h3 className="text-lg font-bold text-slate-800 m-0">
+                             Detected as Present <span className="text-sm font-semibold text-slate-400 ml-1">({scanResult.validFaces?.length || 0})</span>
+                          </h3>
+                       </div>
+                       <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                          {scanResult.validFaces?.map((face, idx) => (
+                             <div key={idx} className="flex items-center justify-between p-4 rounded-xl bg-white border border-emerald-100 shadow-[0_2px_8px_rgba(16,185,129,0.06)] border-l-4 border-l-emerald-400">
+                                <span className="font-semibold text-slate-700">{face.name}</span>
+                                <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-full border border-emerald-100">AI Detected</span>
                              </div>
                           ))}
-                          {scanResult.faces.filter(f => f.status === 'detected' || f.status === 'present' || f.status === 'marked').length === 0 && (
-                             <p className="text-secondary text-sm">No students detected.</p>
+                          {(!scanResult.validFaces || scanResult.validFaces.length === 0) && (
+                             <p className="text-slate-500 text-sm italic py-4 text-center">No students from this class detected.</p>
                           )}
                        </div>
                     </div>
                     
                     {/* Missing Students Column */}
-                    <div className="bg-white/5 border border-glass-border rounded-xl p-6">
-                       <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
-                          <CloseIcon /> Not Detected / Absent ({missingStudents.length})
-                       </h3>
-                       <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-2">
-                          {missingStudents.map((student, idx) => (
-                             <label key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
-                                <span className="font-medium">{student.name}</span>
-                                <input 
-                                   type="checkbox" 
-                                   className="w-5 h-5 rounded border-white/20 bg-black/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
-                                   checked={manualOverrides.includes(student.name)}
-                                   onChange={(e) => {
-                                      if (e.target.checked) {
-                                         setManualOverrides(prev => [...prev, student.name]);
-                                      } else {
-                                         setManualOverrides(prev => prev.filter(n => n !== student.name));
-                                      }
-                                   }}
-                                />
-                             </label>
-                          ))}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                       <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-5">
+                          <div className="p-2 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center">
+                             <CloseIcon />
+                          </div>
+                          <h3 className="text-lg font-bold text-slate-800 m-0">
+                             Not Detected / Absent <span className="text-sm font-semibold text-slate-400 ml-1">({missingStudents.length})</span>
+                          </h3>
+                       </div>
+                       <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                          {missingStudents.map((student, idx) => {
+                             const isSelected = manualOverrides.includes(student.name);
+                             return (
+                                <label key={idx} className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer ${isSelected ? 'bg-indigo-50 border-indigo-200 shadow-sm' : 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-slate-300'}`}>
+                                   <span className={`font-semibold ${isSelected ? 'text-indigo-800' : 'text-slate-700'}`}>{student.name}</span>
+                                   <div className={`w-6 h-6 rounded flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 text-white' : 'bg-white border border-slate-300 text-transparent'}`}>
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                   </div>
+                                   <input 
+                                      type="checkbox" 
+                                      className="hidden"
+                                      checked={isSelected}
+                                      onChange={(e) => {
+                                         if (e.target.checked) {
+                                            setManualOverrides(prev => [...prev, student.name]);
+                                         } else {
+                                            setManualOverrides(prev => prev.filter(n => n !== student.name));
+                                         }
+                                      }}
+                                   />
+                                </label>
+                             );
+                          })}
                           {missingStudents.length === 0 && (
-                             <p className="text-secondary text-sm">All students from this class are present!</p>
+                             <p className="text-slate-500 text-sm italic py-4 text-center">All students from this class are present!</p>
                           )}
                        </div>
                     </div>
                  </div>
+                 
+                 {scanResult.anomalyFaces && scanResult.anomalyFaces.length > 0 && (
+                     <div className="mt-6 bg-white border border-amber-200 rounded-2xl p-6 shadow-[0_2px_12px_rgba(245,158,11,0.08)] text-left">
+                        <div className="flex items-center gap-3 border-b border-amber-100 pb-3 mb-4">
+                           <div className="p-2 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                              <InfoIcon />
+                           </div>
+                           <h3 className="text-base font-bold text-amber-900 m-0">
+                              Out of Class / Visitors Detected <span className="text-sm font-semibold text-amber-600 ml-1">({scanResult.anomalyFaces.length})</span>
+                           </h3>
+                        </div>
+                        <p className="text-sm text-amber-700 mb-4">The following people were detected in the camera but are not registered in {sessionClass} Section {sessionSection}. They will not be marked present.</p>
+                        <div className="flex flex-wrap gap-2">
+                           {scanResult.anomalyFaces.map((face, idx) => (
+                              <span key={idx} className="bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-3 py-1 rounded-lg">
+                                 {face.name}
+                              </span>
+                           ))}
+                        </div>
+                     </div>
+                 )}
                  
                  <div className="mt-8 flex justify-end gap-4">
                     <button 
@@ -782,7 +855,7 @@ export default function Home() {
         return (
            <div className="glass-panel p-8 text-center animate-in max-w-2xl mx-auto">
               <div className="flex items-center justify-center gap-3 mb-2">
-                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
+                 <div className="w-10 h-10 bg-slate-100 border border-slate-200 rounded-full flex items-center justify-center text-slate-500 shadow-[inset_0_2px_5px_rgba(0,0,0,0.06),0_1px_1px_rgba(255,255,255,1)]">
                     <UsersIcon size="lg" strokeColor="currentColor" />
                  </div>
                  <h2 className="m-0 text-2xl font-bold">Teacher Check-In</h2>
@@ -790,23 +863,38 @@ export default function Home() {
               <p className="text-secondary mb-8">Verify your presence inside the school premises to log your attendance.</p>
               
               <div className="flex flex-col items-center gap-6">
-                 <div className="p-6 bg-white/5 border border-glass-border rounded-xl max-w-md w-full">
-                    <h3 className="font-semibold text-lg mb-2">Instructions</h3>
-                    <ul className="text-sm text-secondary text-left list-disc list-inside">
+                 <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl max-w-md w-full shadow-[inset_0_2px_8px_rgba(0,0,0,0.04),0_1px_1px_rgba(255,255,255,1)]">
+                    <h3 className="font-bold text-slate-700 text-lg mb-3">Instructions</h3>
+                    <ul className="text-sm text-slate-500 font-medium text-left list-disc list-inside space-y-1">
                        <li>Ensure location services are enabled on your device.</li>
                        <li>You must be within 200 meters of the school premises.</li>
                        <li>Your check-in timestamp and location will be audited.</li>
                     </ul>
                  </div>
                  
-                 <button 
-                    onClick={() => { setCaptureMode('teacher'); setShowWebcam(true); }}
-                    disabled={isUploading}
-                    className="btn px-8 py-4 text-lg w-full max-w-sm flex items-center justify-center gap-3 bg-green-600 text-white rounded-2xl font-bold shadow-md hover:bg-green-700 transition-colors"
-                 >
-                    <CheckCircleIcon size="lg" />
-                    {isUploading ? uploadStatus : "Check In Now (Face Scan)"}
-                 </button>
+                 <div className="flex w-full max-w-md gap-4">
+                     <button 
+                        onClick={() => handleTeacherActionClick('teacher_checkin')}
+                        disabled={isUploading}
+                        className="flex-1 py-4 px-4 text-base font-bold flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 text-white shadow-[0_6px_16px_rgba(16,185,129,0.25),inset_0_-4px_8px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.3)] hover:bg-emerald-400 hover:shadow-[0_8px_20px_rgba(16,185,129,0.3),inset_0_-2px_4px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.4)] active:shadow-[inset_0_4px_8px_rgba(0,0,0,0.2)] active:translate-y-1 transition-all"
+                     >
+                        <CheckCircleIcon size="md" />
+                        Check In
+                     </button>
+                     <button 
+                        onClick={() => handleTeacherActionClick('teacher_checkout')}
+                        disabled={isUploading}
+                        className="flex-1 py-4 px-4 text-base font-bold flex items-center justify-center gap-2 rounded-2xl bg-amber-500 text-white shadow-[0_6px_16px_rgba(245,158,11,0.25),inset_0_-4px_8px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.3)] hover:bg-amber-400 hover:shadow-[0_8px_20px_rgba(245,158,11,0.3),inset_0_-2px_4px_rgba(0,0,0,0.1),inset_0_2px_4px_rgba(255,255,255,0.4)] active:shadow-[inset_0_4px_8px_rgba(0,0,0,0.2)] active:translate-y-1 transition-all"
+                     >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                        Check Out
+                     </button>
+                 </div>
+                 {isUploading && (
+                     <div className="mt-4 px-4 py-2 bg-slate-100 rounded-full text-slate-600 font-medium text-sm animate-pulse border border-slate-200">
+                         {uploadStatus}
+                     </div>
+                 )}
               </div>
            </div>
         );
@@ -998,7 +1086,7 @@ export default function Home() {
     <main
       className="flex min-h-screen font-sans"
     >
-      {showWebcam && <WebcamCapture onCapture={handleWebcamCapture} onClose={() => setShowWebcam(false)} />}
+      {showWebcam && <WebcamCapture onCapture={handleWebcamCapture} onClose={() => setShowWebcam(false)} locationStatus={(captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout') ? locationStatus : null} locationMessage={locationMessage} />}
 
       {/* MOBILE HEADER - Glass Style */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-20 p-4 flex justify-between items-center bg-[var(--color-cotton-lavender)] border-b border-slate-300/30 shadow-sm">
@@ -1033,10 +1121,12 @@ export default function Home() {
       `}>
         <div className="p-6 border-b border-slate-300/30 relative z-10">
           <div className="flex items-center gap-3">
-            <img src="/attendx_logo.png" alt="AttendX" className="w-11 h-11 rounded-xl object-contain" />
+            <div className="p-1.5 bg-slate-100 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_1px_1px_rgba(255,255,255,1)] border border-slate-200">
+              <img src="/attendx_logo.png" alt="AttendX" className="w-9 h-9 object-contain drop-shadow-sm" />
+            </div>
             <div>
-              <h1 className="text-xl font-semibold m-0 tracking-tight">AttendX</h1>
-              <p className="text-xs text-slate-500 mt-0.5">Smart Attendance v2.0</p>
+              <h1 className="text-xl font-extrabold text-slate-800 m-0 tracking-tight drop-shadow-sm">AttendX</h1>
+              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Smart Attendance</p>
             </div>
           </div>
         </div>
@@ -1062,13 +1152,13 @@ export default function Home() {
         </nav>
 
         <div className="p-4 border-t border-slate-300/30 relative z-10">
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/40 border border-white/50 shadow-sm">
-            <div className="w-9 h-9 rounded-xl bg-white/90 flex items-center justify-center font-bold text-purple-600">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.04),0_1px_1px_rgba(255,255,255,1)] hover:bg-slate-100 transition-colors group cursor-pointer" onClick={logout}>
+            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center font-bold text-indigo-600 shadow-sm border border-slate-200 group-hover:shadow-[inset_0_2px_4px_rgba(0,0,0,0.06)] transition-shadow">
               {user?.displayName?.[0] || 'U'}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.displayName || 'User'}</p>
-              <button onClick={logout} className="text-xs text-slate-400 hover:text-slate-600 text-left">Sign Out</button>
+              <p className="text-sm font-bold text-slate-700 truncate">{user?.displayName || 'User'}</p>
+              <button className="text-xs font-semibold text-slate-400 group-hover:text-rose-500 text-left transition-colors">Sign Out</button>
             </div>
           </div>
         </div>
