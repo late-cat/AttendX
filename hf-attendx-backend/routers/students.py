@@ -33,7 +33,7 @@ def sanitize_student_name(name: str) -> str:
     return sanitized
 
 @router.post("/recognize")
-async def recognize_api(request: Request, file: UploadFile = File(...)):
+async def recognize_api(request: Request, file: UploadFile = File(...), save: bool = Form(True)):
     """Recognize faces in uploaded image. Public endpoint (for now)."""
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
@@ -45,7 +45,7 @@ async def recognize_api(request: Request, file: UploadFile = File(...)):
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        results = recognize_face(temp_path)
+        results = recognize_face(temp_path, save=save)
         
         # Cleanup
         if os.path.exists(temp_path): os.remove(temp_path)
@@ -56,7 +56,7 @@ async def recognize_api(request: Request, file: UploadFile = File(...)):
         
         if results:
             for res in results:
-                if res['status'] in ['present', 'marked']:
+                if res['status'] in ['present', 'marked', 'detected']:
                     status = res['status']
                     name = res['name']
                     message = res['message']
@@ -79,6 +79,9 @@ async def recognize_api(request: Request, file: UploadFile = File(...)):
 @router.post("/register-student")
 async def register_student(
     name: str = Form(...), 
+    class_name: str = Form(""),
+    section: str = Form(""),
+    roll_number: str = Form(""),
     files: list[UploadFile] = File(...),
     api_key: str = Depends(get_api_key)  # Protected
 ):
@@ -119,7 +122,7 @@ async def register_student(
             image_urls = []
         
         reload_embeddings()
-        update_student_metadata(name, len(image_urls) or len(files))
+        update_student_metadata(name, len(image_urls) or len(files), class_name, section, roll_number)
         
         cache.invalidate_all()
         bump_sync_version("register")

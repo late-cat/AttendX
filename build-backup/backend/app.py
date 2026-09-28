@@ -10,6 +10,7 @@ import uuid
 import sys
 import logging
 import re
+import json
 
 import pandas as pd
 from datetime import datetime
@@ -267,8 +268,8 @@ async def recognize_api(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/register-student")
-async def register_student(name: str = Form(...), files: list[UploadFile] = File(...)):
-    """Register a new student with their face images."""
+async def register_student(name: str = Form(...), class_name: str = Form(""), section: str = Form(""), roll_number: str = Form(""), files: list[UploadFile] = File(...)):
+    """Register a new student with their face images and metadata."""
     if not name or not files:
         raise HTTPException(status_code=400, detail="Name and images required")
     
@@ -294,6 +295,18 @@ async def register_student(name: str = Form(...), files: list[UploadFile] = File
             file_path = os.path.join(student_dir, f"{idx+1}.jpg")
             with open(file_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
+                
+        # Save metadata
+        metadata = {
+            "name": name,
+            "class_name": class_name,
+            "section": section,
+            "roll_number": roll_number,
+            "registered_at": datetime.now().isoformat()
+        }
+        with open(os.path.join(student_dir, "metadata.json"), "w") as f:
+            json.dump(metadata, f)
+        
         
         # Step 2: Generate embeddings from local images
         logger.info(f"🧠 Generating embeddings for {name}...")

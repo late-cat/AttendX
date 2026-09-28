@@ -1,40 +1,64 @@
 import { formatDate, formatTime } from '../lib/utils';
 
-export default function AttendanceTable({ data }) {
+export default function AttendanceTable({ data, viewType = 'students' }) {
     if (!data || data.length === 0) {
         return (
-            <div className="text-center py-12 border border-dashed border-glass-border rounded-lg bg-white/5">
-                <p className="text-secondary">No records found.</p>
+            <div className="text-center py-12 border border-dashed border-slate-300 rounded-2xl bg-white/40">
+                <p className="text-slate-500 font-medium">No records found.</p>
             </div>
         );
     }
 
     return (
-        <div className="overflow-x-auto rounded-lg border border-glass-border">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
             <table className="w-full text-sm text-left">
-                <thead className="text-xs text-secondary uppercase bg-white/5 font-medium">
+                <thead className="text-xs text-slate-500 uppercase bg-slate-50 font-bold">
                     <tr>
-                        <th className="px-6 py-4">Student Name</th>
+                        <th className="px-6 py-4">{viewType === 'teachers' ? 'Teacher Name' : 'Student Name'}</th>
+                        {viewType === 'students' && <th className="px-6 py-4">Class</th>}
                         <th className="px-6 py-4">Date</th>
                         <th className="px-6 py-4">Time</th>
+                        {viewType === 'teachers' && <th className="px-6 py-4">Distance</th>}
                         <th className="px-6 py-4">Status</th>
                     </tr>
                 </thead>
-                <tbody className="divide-y divide-glass-border bg-black/20">
+                <tbody className="divide-y divide-slate-100">
                     {data.map((row, i) => (
-                        <tr key={i} className="hover:bg-white/5 transition-colors">
-                            <td className="px-6 py-4 font-medium text-white flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-blue-600/30 flex items-center justify-center text-xs border border-blue-500/30">
+                        <tr key={i} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4 font-bold text-slate-800 flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-[var(--color-cotton-blue)] flex items-center justify-center text-xs font-bold text-slate-700 border border-slate-200/50">
                                     {row.Name?.[0]}
                                 </div>
                                 {row.Name}
                             </td>
-                            <td className="px-6 py-4 text-secondary">{formatDate(row.Date)}</td>
-                            <td className="px-6 py-4 font-mono text-secondary">{formatTime(row.Time)}</td>
+                            {viewType === 'students' && (
+                                <td className="px-6 py-4 text-slate-500">
+                                    {row.Class ? (
+                                        <span className="flex flex-col gap-1">
+                                            <span className="font-bold text-slate-700">Class {row.Class}-{row.Section}</span>
+                                            <span className="text-xs">{row.Subject}</span>
+                                        </span>
+                                    ) : (
+                                        <span className="text-xs opacity-50">N/A</span>
+                                    )}
+                                </td>
+                            )}
+                            <td className="px-6 py-4 text-slate-500">{formatDate(row.Date)}</td>
+                            <td className="px-6 py-4 font-mono text-slate-500">{formatTime(row.Time)}</td>
+                            {viewType === 'teachers' && (
+                                <td className="px-6 py-4 text-slate-500">
+                                    {row.Distance !== undefined ? `${Math.round(row.Distance)}m` : 'N/A'}
+                                </td>
+                            )}
                             <td className="px-6 py-4">
-                                <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
+                                <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
                                     Present
                                 </span>
+                                {row.Source === 'Manual_Override' && (
+                                    <span className="ml-2 px-2 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                                        Manual
+                                    </span>
+                                )}
                             </td>
                         </tr>
                     ))}

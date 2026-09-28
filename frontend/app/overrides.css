@@ -1,0 +1,49 @@
+/* Tailwind Class Overrides for Soft Paper Theme */
+/* This maps hardcoded dark mode utility classes to our light theme variables */
+.text-white { color: var(--text-main) !important; }
+.text-white\/90 { color: rgba(30, 41, 59, 0.9) !important; }
+.text-white\/80 { color: rgba(30, 41, 59, 0.8) !important; }
+.text-white\/70 { color: rgba(30, 41, 59, 0.7) !important; }
+.text-white\/60 { color: var(--text-muted) !important; }
+.text-white\/50 { color: rgba(100, 116, 139, 0.8) !important; }
+.text-white\/40 { color: rgba(100, 116, 139, 0.6) !important; }
+.text-white\/25 { color: rgba(100, 116, 139, 0.4) !important; }
+
+/* Backgrounds */
+.stroke-white { stroke: var(--text-main) !important; }
+.bg-white\/5, .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.05\] { background: rgba(0, 0, 0, 0.02) !important; }
+.bg-white\/\[0\.08\], .bg-white\/\[0\.06\] { background: rgba(255, 255, 255, 0.4) !important; }
+.bg-white\/10, .bg-white\/\[0\.1\] { background: rgba(0, 0, 0, 0.03) !important; }
+.bg-white\/\[0\.12\], .bg-white\/\[0\.14\], .bg-white\/\[0\.15\] { background: rgba(0, 0, 0, 0.04) !important; }
+.bg-white\/20, .bg-white\/30 { background: rgba(255, 255, 255, 0.8) !important; }
+.bg-black\/20 { background: rgba(255, 255, 255, 0.4) !important; }
+.bg-black\/40 { background: rgba(255, 255, 255, 0.6) !important; }
+
+/* Background with arbitrary values that were dark */
+.bg-\[\#1a1625\] { background: var(--bg-card) !important; color: var(--text-main) !important; }
+.bg-\[\#13101c\] { background: var(--bg-dark) !important; border-right: 1px solid rgba(0,0,0,0.05) !important; }
+
+/* Borders */
+.border-white\/10, .border-white\/\[0\.08\], .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.04) !important; }
+.border-white\/\[0\.12\], .border-white\/\[0\.15\], .border-white\/20 { border-color: rgba(0, 0, 0, 0.08) !important; }
+.border-violet-500\/30 { border-color: rgba(79, 70, 229, 0.2) !important; }
+.border-transparent { border-color: transparent !important; }
+
+/* Other overrides */
+.text-violet-300 { color: var(--primary) !important; }
+.text-cyan-300 { color: #0284c7 !important; }
+.text-emerald-300 { color: var(--success) !important; }
+
+.hover\:text-white:hover { color: var(--primary-hover) !important; }
+.hover\:bg-white\/5:hover { background: rgba(0, 0, 0, 0.04) !important; }
+.hover\:bg-white\/\[0\.1\]:hover, .hover\:bg-white\/\[0\.18\]:hover { background: rgba(0, 0, 0, 0.06) !important; }
+
+/* Override drop shadows and box shadows that use white */
+[style*="box-shadow: inset 0 1px 1px rgba(255,255,255"] {
+  box-shadow: inset 0 1px 2px rgba(255,255,255,1), 0 2px 4px rgba(0,0,0,0.03) !important;
+}
+
+/* Sidebar and active states */
+.from-violet-500\/10 { --tw-gradient-from: rgba(79, 70, 229, 0.1) var(--tw-gradient-from-position); }
+.to-cyan-500\/10 { --tw-gradient-to: rgba(14, 165, 233, 0.1) var(--tw-gradient-to-position); }
+.via-cyan-500\/10 { --tw-gradient-stops: var(--tw-gradient-from), rgba(14, 165, 233, 0.1) var(--tw-gradient-via-position), var(--tw-gradient-to); }

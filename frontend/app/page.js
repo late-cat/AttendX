@@ -21,6 +21,7 @@ import SystemStatusCard from '@/components/SystemStatusCard';
 import AttendanceTable from '@/components/AttendanceTable';
 import LogItem from '@/components/LogItem';
 import StudentManagementTab from '@/components/StudentManagementTab';
+import TeacherManagementTab from '@/components/TeacherManagementTab';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
 import AboutTab from '@/components/AboutTab';
 
@@ -56,6 +57,8 @@ const TABS = [
   { id: 'today', label: "Today's Attendance", icon: Icons.calendar },
   { id: 'logs', label: 'Attendance Logs', icon: Icons.logs },
   { id: 'students', label: 'Student Mgmt', icon: Icons.users },
+  { id: 'teachers', label: 'Teacher Mgmt', icon: Icons.users },
+  { id: 'teacher_checkin', label: 'Teacher Check-in', icon: Icons.users },
   { id: 'settings', label: 'Settings', icon: Icons.settings },
   { id: 'about', label: 'About', icon: Icons.info },
 ];
@@ -69,9 +72,14 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar toggle
   const [stats, setStats] = useState({ present: 0, total_students: 0, system_status: 'Checking...' });
   const [todayLogs, setTodayLogs] = useState([]);
+  const [teacherTodayLogs, setTeacherTodayLogs] = useState([]);
   const [allLogs, setAllLogs] = useState([]);
+  const [teacherAllLogs, setTeacherAllLogs] = useState([]);
+  const [logsViewType, setLogsViewType] = useState('students'); // 'students' | 'teachers'
   const [logsFilter, setLogsFilter] = useState('today'); // 'today', '7days', 'all'
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterClass, setFilterClass] = useState('All');
+  const [filterSection, setFilterSection] = useState('All');
 
   // Cache state - tracks what data has been loaded and when
   const [cache, setCache] = useState({
@@ -88,8 +96,37 @@ export default function Home() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [showWebcam, setShowWebcam] = useState(false);
+  const [captureMode, setCaptureMode] = useState('student'); // 'student' | 'teacher'
   const [scanResult, setScanResult] = useState(null); // { status: 'success'|'error', faces: [...] }
   const [imagePreview, setImagePreview] = useState(null);
+
+  // Contextual Attendance & Review State
+  const [sessionClass, setSessionClass] = useState("");
+  const [sessionSection, setSessionSection] = useState("");
+  const [sessionSubject, setSessionSubject] = useState("");
+  const [reviewMode, setReviewMode] = useState(false);
+  const [missingStudents, setMissingStudents] = useState([]);
+  const [manualOverrides, setManualOverrides] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+
+  // URL Routing for Tabs
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab && TABS.find(t => t.id === tab)) {
+        setActiveTab(tab);
+      }
+    }
+  }, []);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (typeof window !== 'undefined') {
+      window.history.pushState(null, '', `?tab=${tabId}`);
+    }
+    setSidebarOpen(false);
+  };
 
   // Auth Guard
   useEffect(() => {
@@ -187,11 +224,18 @@ export default function Home() {
         }
       }
 
-      // Today's attendance
+      // Today's student attendance
       const resToday = await fetch(`${API_BASE_URL}/attendance/today`);
       const dataToday = await resToday.json();
       setTodayLogs(dataToday.logs || []);
       setStats(prev => ({ ...prev, present: dataToday.stats?.present || 0 }));
+
+      // Today's teacher attendance
+      const resTeacherToday = await fetch(`${API_BASE_URL}/attendance/teacher/today`);
+      if (resTeacherToday.ok) {
+        const dataTeacherToday = await resTeacherToday.json();
+        setTeacherTodayLogs(dataTeacherToday.logs || []);
+      }
 
       // Update cache
       setCache(prev => ({ ...prev, overview: { loaded: true, timestamp: Date.now() } }));
@@ -227,6 +271,12 @@ export default function Home() {
       const data = await res.json();
       setAllLogs(data.logs || []);
 
+      const tRes = await fetch(`${API_BASE_URL}/attendance/teacher/logs`);
+      if (tRes.ok) {
+        const tData = await tRes.json();
+        setTeacherAllLogs(tData.logs || []);
+      }
+
       // Update cache
       setCache(prev => ({ ...prev, logs: { loaded: true, filter, timestamp: Date.now() } }));
     } catch (e) {
@@ -252,6 +302,15 @@ export default function Home() {
       // 'live', 'students', 'settings' don't need data from here
     }
   }, [activeTab, loading, user]);
+
+  // Fetch all students for contextual attendance
+  useEffect(() => {
+    if (!loading && user) {
+      fetch(`${API_BASE_URL}/students`).then(res => res.json()).then(data => {
+        setAllStudents(data.students || []);
+      }).catch(err => console.error("Failed to fetch students", err));
+    }
+  }, [loading, user]);
 
   // Re-fetch logs when filter changes (only if on logs tab)
   useEffect(() => {
@@ -283,7 +342,11 @@ export default function Home() {
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
 
-    processImage(file);
+    if (captureMode === 'teacher') {
+       processTeacherCheckIn(blob);
+    } else {
+       processImage(file);
+    }
   };
 
   const processImage = async (file) => {
@@ -292,8 +355,15 @@ export default function Home() {
     setScanResult(null);
 
     try {
+      if (!sessionClass || !sessionSection || !sessionSubject) {
+         alert("Please enter Class, Section, and Subject first.");
+         setIsUploading(false);
+         return;
+      }
+        
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('save', 'false');
 
       const res = await fetch(`${API_BASE_URL}/recognize`, {
         method: 'POST',
@@ -303,23 +373,21 @@ export default function Home() {
       if (!res.ok) throw new Error("API Error");
       const data = await res.json();
 
-      // Handle response with details array
       if (data.details && data.details.length > 0) {
-        const hasSuccess = data.details.some(d => d.status === 'present' || d.status === 'marked');
+        const detectedFaces = data.details.filter(d => d.status === 'detected' || d.status === 'present' || d.status === 'marked');
+        
         setScanResult({
-          status: hasSuccess ? 'success' : 'error',
+          status: detectedFaces.length > 0 ? 'success' : 'error',
           faces: data.details
         });
-        if (hasSuccess) {
-          // Invalidate cache and refresh data after successful attendance
-          invalidateCache();
-          // Increment local version so we don't show "new updates" for our own action
-          localVersionRef.current += 1;
-          setSyncStatus('syncing');
-          setTimeout(async () => {
-            await fetchOverviewData(true);
-            setSyncStatus('synced');
-          }, 1000);
+        
+        if (detectedFaces.length > 0) {
+           const detectedNames = detectedFaces.map(f => f.name);
+           const classStudents = allStudents.filter(s => s.class_name == sessionClass && s.section == sessionSection);
+           const missing = classStudents.filter(s => !detectedNames.includes(s.name));
+           
+           setMissingStudents(missing);
+           setReviewMode(true);
         }
       } else {
         setScanResult({ status: 'error', faces: [{ name: 'Unknown', message: data.message || 'No face detected' }] });
@@ -329,6 +397,60 @@ export default function Home() {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const handleFinalizeAttendance = async () => {
+     setIsUploading(true);
+     setUploadStatus("Saving...");
+     try {
+        const detectedFaces = scanResult.faces.filter(f => f.status === 'detected' || f.status === 'present' || f.status === 'marked').map(f => f.name);
+        
+        const records = [
+           ...detectedFaces.map(name => ({ name, source: "AI_Camera" })),
+           ...manualOverrides.map(name => ({ name, source: "Manual_Override" }))
+        ];
+        
+        if (records.length === 0) {
+           alert("No students to mark present.");
+           setIsUploading(false);
+           return;
+        }
+        
+        const res = await fetch(`${API_BASE_URL}/attendance/finalize`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({
+               class_name: sessionClass,
+               section: sessionSection,
+               subject: sessionSubject,
+               records
+           })
+        });
+        
+        if (res.ok) {
+           setReviewMode(false);
+           setScanResult(null);
+           setImagePreview(null);
+           setManualOverrides([]);
+           alert("Attendance finalized successfully!");
+           
+           // Invalidate cache and refresh
+           invalidateCache();
+           localVersionRef.current += 1;
+           setSyncStatus('syncing');
+           setTimeout(async () => {
+             await fetchOverviewData(true);
+             setSyncStatus('synced');
+           }, 1000);
+        } else {
+           alert("Error saving attendance.");
+        }
+     } catch (e) {
+        console.error(e);
+        alert("Failed to connect to server.");
+     } finally {
+        setIsUploading(false);
+     }
   };
 
   const exportCSV = () => {
@@ -365,9 +487,19 @@ export default function Home() {
 
   // Filter logs - date filtering is now done by backend, only search filtering here
   const getFilteredLogs = () => {
+    if (logsViewType === 'teachers') {
+      let logs = [...teacherAllLogs];
+      if (searchQuery.trim()) {
+        logs = logs.filter(log => log.Name?.toLowerCase().includes(searchQuery.toLowerCase()));
+      }
+      return logs;
+    }
+
     let logs = [...allLogs];
 
-    // Only apply search filter (date filtering handled by backend)
+    if (filterClass !== 'All') logs = logs.filter(log => log.Class == filterClass);
+    if (filterSection !== 'All') logs = logs.filter(log => log.Section == filterSection);
+
     if (searchQuery.trim()) {
       logs = logs.filter(log =>
         log.Name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -376,8 +508,71 @@ export default function Home() {
 
     return logs;
   };
+  
+  const getFilteredTodayLogs = () => {
+    if (logsViewType === 'teachers') return [...teacherTodayLogs];
+    
+    let logs = [...todayLogs];
+    
+    if (filterClass !== 'All') logs = logs.filter(log => log.Class == filterClass);
+    if (filterSection !== 'All') logs = logs.filter(log => log.Section == filterSection);
+
+    return logs.reverse();
+  };
 
 
+
+  const processTeacherCheckIn = (blob) => {
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.readAsDataURL(blob); 
+    reader.onloadend = () => {
+        const base64data = reader.result;
+        
+        setIsUploading(true);
+        setUploadStatus("Getting location...");
+        
+        navigator.geolocation.getCurrentPosition(async (position) => {
+           try {
+              setUploadStatus("Verifying identity & location...");
+              const res = await fetch(`${API_BASE_URL}/attendance/teacher/check-in`, {
+                 method: 'POST',
+                 headers: { 'Content-Type': 'application/json' },
+                 body: JSON.stringify({
+                    teacher_id: user?.email || "Unknown_Teacher",
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    image: base64data
+                 })
+              });
+              
+              const data = await res.json();
+              if (res.ok) {
+                 alert(data.message);
+                 setImagePreview(null);
+              } else {
+                 alert(data.detail || "Check-in failed.");
+              }
+           } catch (err) {
+              console.error(err);
+              alert("Network error.");
+           } finally {
+              setIsUploading(false);
+           }
+        }, (error) => {
+           alert(`Error getting location: ${error.message}`);
+           setIsUploading(false);
+        }, {
+           enableHighAccuracy: true,
+           timeout: 5000,
+           maximumAge: 0
+        });
+    }
+  };
 
   if (loading || !user) return null;
 
@@ -395,19 +590,14 @@ export default function Home() {
             <div className="col-span-full md:col-span-2 glass-panel p-6 mt-4">
               <div className="flex justify-between items-center mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-white/[0.12] border border-white/[0.12] rounded-[11px] flex items-center justify-center" style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2)' }}>
+                  <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
                     {Icons.bellLg}
                   </div>
                   <h3 className="text-base font-semibold m-0">Recent Activity</h3>
                 </div>
                 <button
                   onClick={() => setActiveTab('logs')}
-                  className="text-sm font-medium text-violet-300 hover:text-white px-4 py-1.5 rounded-full transition-all duration-200 hover:-translate-y-0.5"
-                  style={{
-                    background: 'rgba(139, 92, 246, 0.15)',
-                    border: '1px solid rgba(139, 92, 246, 0.3)',
-                    boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1)'
-                  }}
+                  className="text-sm font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 px-4 py-1.5 rounded-full transition-all duration-200 hover:-translate-y-0.5 shadow-sm"
                 >
                   View All
                 </button>
@@ -423,18 +613,144 @@ export default function Home() {
         );
 
       case 'live':
+        if (reviewMode) {
+           return (
+              <div className="glass-panel p-8 text-center animate-in max-w-4xl mx-auto">
+                 <h2 className="m-0 mb-6 text-2xl font-bold">Review Attendance</h2>
+                 <p className="text-secondary mb-8">Please verify the detected students and manually add any missed students.</p>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
+                    {/* Detected Students Column */}
+                    <div className="bg-white/5 border border-glass-border rounded-xl p-6">
+                       <h3 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
+                          <CheckCircleIcon /> Detected as Present ({scanResult.faces.filter(f => f.status === 'detected' || f.status === 'present' || f.status === 'marked').length})
+                       </h3>
+                       <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-2">
+                          {scanResult.faces.filter(f => f.status === 'detected' || f.status === 'present' || f.status === 'marked').map((face, idx) => (
+                             <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                                <span className="font-medium">{face.name}</span>
+                                <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">AI Detected</span>
+                             </div>
+                          ))}
+                          {scanResult.faces.filter(f => f.status === 'detected' || f.status === 'present' || f.status === 'marked').length === 0 && (
+                             <p className="text-secondary text-sm">No students detected.</p>
+                          )}
+                       </div>
+                    </div>
+                    
+                    {/* Missing Students Column */}
+                    <div className="bg-white/5 border border-glass-border rounded-xl p-6">
+                       <h3 className="text-lg font-semibold text-red-400 mb-4 flex items-center gap-2">
+                          <CloseIcon /> Not Detected / Absent ({missingStudents.length})
+                       </h3>
+                       <div className="flex flex-col gap-3 max-h-96 overflow-y-auto pr-2">
+                          {missingStudents.map((student, idx) => (
+                             <label key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
+                                <span className="font-medium">{student.name}</span>
+                                <input 
+                                   type="checkbox" 
+                                   className="w-5 h-5 rounded border-white/20 bg-black/20 text-blue-500 focus:ring-blue-500 focus:ring-offset-gray-900"
+                                   checked={manualOverrides.includes(student.name)}
+                                   onChange={(e) => {
+                                      if (e.target.checked) {
+                                         setManualOverrides(prev => [...prev, student.name]);
+                                      } else {
+                                         setManualOverrides(prev => prev.filter(n => n !== student.name));
+                                      }
+                                   }}
+                                />
+                             </label>
+                          ))}
+                          {missingStudents.length === 0 && (
+                             <p className="text-secondary text-sm">All students from this class are present!</p>
+                          )}
+                       </div>
+                    </div>
+                 </div>
+                 
+                 <div className="mt-8 flex justify-end gap-4">
+                    <button 
+                       onClick={() => { setReviewMode(false); setScanResult(null); setImagePreview(null); }}
+                       className="btn btn-secondary px-6"
+                       disabled={isUploading}
+                    >
+                       Cancel
+                    </button>
+                    <button 
+                       onClick={handleFinalizeAttendance}
+                       className="btn btn-primary px-8"
+                       disabled={isUploading}
+                    >
+                       {isUploading ? "Saving..." : "Finalize Attendance"}
+                    </button>
+                 </div>
+              </div>
+           );
+        }
+
         return (
           <div className="glass-panel p-8 text-center animate-in max-w-2xl mx-auto">
             <div className="flex items-center justify-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-white/[0.12] border border-white/[0.15] rounded-[12px] flex items-center justify-center" style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2)' }}>
+              <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
                 {Icons.cameraLg}
               </div>
               <h2 className="m-0">Live Attendance Station</h2>
             </div>
-            <p className="text-secondary mb-8">Take a photo or upload an image to mark attendance instantly.</p>
+            <p className="text-secondary mb-8">Setup the session and take a photo to mark attendance.</p>
+            
+            <div className="grid grid-cols-3 gap-4 mb-8 text-left max-w-md mx-auto">
+               <div className="relative">
+                  <label className="block text-sm font-bold mb-2 text-slate-700">Class</label>
+                  <select
+                     value={sessionClass}
+                     onChange={(e) => setSessionClass(e.target.value)}
+                     className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-2.5 pr-10 text-sm text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm cursor-pointer appearance-none"
+                  >
+                     <option value="" disabled>Select Class</option>
+                     {[5, 6, 7, 8, 9, 10, 11, 12].map(c => (
+                         <option key={c} value={c}>Class {c}</option>
+                     ))}
+                  </select>
+                  <div className="absolute right-3 top-10 pointer-events-none text-slate-400">
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+               </div>
+               <div className="relative">
+                  <label className="block text-sm font-bold mb-2 text-slate-700">Section</label>
+                  <select
+                     value={sessionSection}
+                     onChange={(e) => setSessionSection(e.target.value)}
+                     className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-2.5 pr-10 text-sm text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm cursor-pointer appearance-none"
+                  >
+                     <option value="" disabled>Select Section</option>
+                     {['A', 'B', 'C', 'D', 'E'].map(s => (
+                         <option key={s} value={s}>Section {s}</option>
+                     ))}
+                  </select>
+                  <div className="absolute right-3 top-10 pointer-events-none text-slate-400">
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+               </div>
+               <div className="relative">
+                  <label className="block text-sm font-bold mb-2 text-slate-700">Subject</label>
+                  <select
+                     value={sessionSubject}
+                     onChange={(e) => setSessionSubject(e.target.value)}
+                     className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-2.5 pr-10 text-sm text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm cursor-pointer appearance-none"
+                  >
+                     <option value="" disabled>Select Subject</option>
+                     {['Math', 'English', 'Science', 'History', 'Geography', 'Computer Science', 'Physical Education', 'Arts'].map(sub => (
+                         <option key={sub} value={sub}>{sub}</option>
+                     ))}
+                  </select>
+                  <div className="absolute right-3 top-10 pointer-events-none text-slate-400">
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+               </div>
+            </div>
 
             <div className="flex flex-col gap-3 max-w-md mx-auto">
-              <button onClick={() => setShowWebcam(true)} className="btn btn-primary justify-center flex items-center gap-2">
+              <button onClick={() => { setCaptureMode('student'); setShowWebcam(true); }} className="btn btn-primary justify-center flex items-center gap-2">
                 {Icons.videoLg} Start Camera
               </button>
               <span className="text-xs text-secondary text-center">- OR -</span>
@@ -459,37 +775,40 @@ export default function Home() {
                 <p className="font-bold text-lg text-blue-400">Processing: {uploadStatus}</p>
               </div>
             )}
-
-            {!isUploading && scanResult && (
-              <div className="mt-8 flex flex-col gap-4">
-                {scanResult.faces.map((face, idx) => (
-                  <div key={idx} className={`p-6 rounded-xl border flex flex-col items-center gap-2 ${face.status === 'present' || face.status === 'marked'
-                    ? 'bg-green-500/10 border-green-500/20'
-                    : 'bg-red-500/10 border-red-500/20'
-                    }`}>
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{
-                      backgroundColor: face.status === 'present' || face.status === 'marked' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                      border: `1px solid ${face.status === 'present' || face.status === 'marked' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`
-                    }}>
-                      {face.status === 'present' || face.status === 'marked' ? (
-                        <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-green-400 fill-none" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
-                      ) : (
-                        <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-red-400 fill-none" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                      )}
-                    </div>
-                    <h3 className="text-xl font-bold">{face.name}</h3>
-                    <p className={`text-sm font-medium ${face.status === 'present' || face.status === 'marked' ? 'text-green-400' : 'text-red-400'}`}>
-                      {face.message}
-                    </p>
-                    {face.distance !== undefined && (
-                      <p className="text-xs text-secondary">Confidence: {(100 - face.distance * 100).toFixed(1)}%</p>
-                    )}
-                    {(face.status === 'present' || face.status === 'marked') && <p className="text-xs text-secondary mt-2 flex items-center gap-1 justify-center"><svg viewBox="0 0 24 24" className="w-3 h-3 stroke-current fill-none" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg> Attendance Recorded</p>}
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+        );
+
+      case 'teacher_checkin':
+        return (
+           <div className="glass-panel p-8 text-center animate-in max-w-2xl mx-auto">
+              <div className="flex items-center justify-center gap-3 mb-2">
+                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
+                    <UsersIcon size="lg" strokeColor="currentColor" />
+                 </div>
+                 <h2 className="m-0 text-2xl font-bold">Teacher Check-In</h2>
+              </div>
+              <p className="text-secondary mb-8">Verify your presence inside the school premises to log your attendance.</p>
+              
+              <div className="flex flex-col items-center gap-6">
+                 <div className="p-6 bg-white/5 border border-glass-border rounded-xl max-w-md w-full">
+                    <h3 className="font-semibold text-lg mb-2">Instructions</h3>
+                    <ul className="text-sm text-secondary text-left list-disc list-inside">
+                       <li>Ensure location services are enabled on your device.</li>
+                       <li>You must be within 200 meters of the school premises.</li>
+                       <li>Your check-in timestamp and location will be audited.</li>
+                    </ul>
+                 </div>
+                 
+                 <button 
+                    onClick={() => { setCaptureMode('teacher'); setShowWebcam(true); }}
+                    disabled={isUploading}
+                    className="btn px-8 py-4 text-lg w-full max-w-sm flex items-center justify-center gap-3 bg-green-600 text-white rounded-2xl font-bold shadow-md hover:bg-green-700 transition-colors"
+                 >
+                    <CheckCircleIcon size="lg" />
+                    {isUploading ? uploadStatus : "Check In Now (Face Scan)"}
+                 </button>
+              </div>
+           </div>
         );
 
       case 'today':
@@ -497,19 +816,68 @@ export default function Home() {
           <div className="glass-panel p-6 animate-in">
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-white/[0.12] border border-white/[0.12] rounded-[11px] flex items-center justify-center" style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2)' }}>
+                <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
                   {Icons.calendarLg}
                 </div>
                 <h2 className="m-0">Today's Attendance</h2>
               </div>
-              <div className="flex gap-2">
-                <button onClick={clearTodayAttendance} className="btn text-sm px-3 py-2 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 rounded-lg flex items-center gap-2">
+              
+              <div className="flex flex-wrap gap-2 items-center">
+                 {/* Toggle View */}
+                 <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+                    <button 
+                       onClick={() => setLogsViewType('students')} 
+                       className={`px-4 py-1.5 text-sm font-bold rounded-xl transition-all ${logsViewType === 'students' ? 'bg-[var(--color-cotton-blue)] text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-700'}`}
+                    >
+                       Students
+                    </button>
+                    <button 
+                       onClick={() => setLogsViewType('teachers')} 
+                       className={`px-4 py-1.5 text-sm font-bold rounded-xl transition-all ${logsViewType === 'teachers' ? 'bg-[var(--color-cotton-blue)] text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-700'}`}
+                    >
+                       Teachers
+                    </button>
+                 </div>
+
+                 {/* Filters (Students Only) */}
+                 {logsViewType === 'students' && (
+                     <>
+                        <div className="relative">
+                           <select
+                              value={filterClass}
+                              onChange={(e) => setFilterClass(e.target.value)}
+                              className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 pr-8 text-sm text-slate-800 focus:outline-none shadow-sm cursor-pointer appearance-none"
+                           >
+                              <option value="All">All Classes</option>
+                              {[5, 6, 7, 8, 9, 10, 11, 12].map(c => <option key={c} value={c}>Class {c}</option>)}
+                           </select>
+                           <div className="absolute right-2.5 top-2 pointer-events-none text-slate-400">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                           </div>
+                        </div>
+                        <div className="relative">
+                           <select
+                              value={filterSection}
+                              onChange={(e) => setFilterSection(e.target.value)}
+                              className="bg-white border border-slate-200 rounded-2xl px-3 py-1.5 pr-8 text-sm text-slate-800 focus:outline-none shadow-sm cursor-pointer appearance-none"
+                           >
+                              <option value="All">All Sections</option>
+                              {['A', 'B', 'C', 'D', 'E'].map(s => <option key={s} value={s}>Section {s}</option>)}
+                           </select>
+                           <div className="absolute right-2.5 top-2 pointer-events-none text-slate-400">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                           </div>
+                        </div>
+                     </>
+                 )}
+                 
+                <button onClick={clearTodayAttendance} className="btn text-sm px-3 py-2 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 rounded-2xl flex items-center gap-2 font-bold shadow-sm">
                   {Icons.trashLg} Clear
                 </button>
-                <button onClick={exportCSV} className="btn btn-secondary text-sm flex items-center gap-2">{Icons.downloadLg} Export CSV</button>
+                <button onClick={exportCSV} className="btn btn-secondary text-sm flex items-center gap-2 rounded-2xl">{Icons.downloadLg} Export CSV</button>
               </div>
             </div>
-            <AttendanceTable data={[...todayLogs].reverse()} />
+            <AttendanceTable data={getFilteredTodayLogs()} viewType={logsViewType} />
           </div>
         );
 
@@ -518,39 +886,81 @@ export default function Home() {
           <div className="glass-panel p-6 animate-in">
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-white/[0.12] border border-white/[0.12] rounded-[11px] flex items-center justify-center" style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2)' }}>
+                <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
                   {Icons.fileLg}
                 </div>
                 <h2 className="m-0">Attendance Logs</h2>
               </div>
               <div className="flex flex-wrap gap-3 items-center w-full sm:w-auto">
-                {/* Filter Dropdown */}
+                 {/* Toggle View */}
+                 <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
+                    <button 
+                       onClick={() => setLogsViewType('students')} 
+                       className={`px-4 py-1.5 text-sm font-bold rounded-xl transition-all ${logsViewType === 'students' ? 'bg-[var(--color-cotton-blue)] text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-700'}`}
+                    >
+                       Students
+                    </button>
+                    <button 
+                       onClick={() => setLogsViewType('teachers')} 
+                       className={`px-4 py-1.5 text-sm font-bold rounded-xl transition-all ${logsViewType === 'teachers' ? 'bg-[var(--color-cotton-blue)] text-slate-800 shadow-sm' : 'text-slate-400 hover:text-slate-700'}`}
+                    >
+                       Teachers
+                    </button>
+                 </div>
+                 
+                {/* Filter Dropdown Date */}
                 <div className="relative">
                   <select
                     value={logsFilter}
                     onChange={(e) => setLogsFilter(e.target.value)}
-                    className="appearance-none bg-white/[0.08] border border-violet-500/30 rounded-lg px-4 py-2.5 pr-10 text-sm text-white/90 cursor-pointer transition-all hover:bg-white/[0.12] hover:border-violet-400/40 focus:outline-none focus:border-violet-400/50"
-                    style={{
-                      backdropFilter: 'blur(12px)',
-                      boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.2)'
-                    }}
+                    className="bg-white border border-slate-200 rounded-2xl px-4 py-2 pr-9 text-sm text-slate-800 cursor-pointer shadow-sm focus:outline-none appearance-none"
                   >
-                    <option value="today" className="bg-[#1a1625] text-white">Today</option>
-                    <option value="7days" className="bg-[#1a1625] text-white">Past 7 Days</option>
-                    <option value="all" className="bg-[#1a1625] text-white">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="7days">Past 7 Days</option>
+                    <option value="all">All Time</option>
                   </select>
-                  {/* Custom dropdown arrow */}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/60">
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
+                  <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
+                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                   </div>
                 </div>
 
-                {/* Search Input - Responsive */}
+                {/* Filter Dropdowns (Students Only) */}
+                {logsViewType === 'students' && (
+                    <>
+                       <div className="relative">
+                          <select
+                             value={filterClass}
+                             onChange={(e) => setFilterClass(e.target.value)}
+                             className="bg-white border border-slate-200 rounded-2xl px-3 py-2 pr-8 text-sm text-slate-800 focus:outline-none shadow-sm cursor-pointer appearance-none"
+                          >
+                             <option value="All">All Classes</option>
+                             {[5, 6, 7, 8, 9, 10, 11, 12].map(c => <option key={c} value={c}>Class {c}</option>)}
+                          </select>
+                          <div className="absolute right-2.5 top-3 pointer-events-none text-slate-400">
+                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                          </div>
+                       </div>
+
+                       <div className="relative">
+                          <select
+                             value={filterSection}
+                             onChange={(e) => setFilterSection(e.target.value)}
+                             className="bg-white border border-slate-200 rounded-2xl px-3 py-2 pr-8 text-sm text-slate-800 focus:outline-none shadow-sm cursor-pointer appearance-none"
+                          >
+                             <option value="All">All Sections</option>
+                             {['A', 'B', 'C', 'D', 'E'].map(s => <option key={s} value={s}>Section {s}</option>)}
+                          </select>
+                          <div className="absolute right-2.5 top-3 pointer-events-none text-slate-400">
+                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                          </div>
+                       </div>
+                    </>
+                )}
+
+                {/* Search Input */}
                 <div className="relative flex-1 sm:flex-none">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/50">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400">
                       <circle cx="11" cy="11" r="8" />
                       <path d="M21 21l-4.35-4.35" />
                     </svg>
@@ -560,22 +970,21 @@ export default function Home() {
                     placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full sm:w-44 bg-white/[0.08] border border-violet-500/30 rounded-lg pl-10 pr-3 py-2.5 text-sm text-white/90 placeholder:text-white/40 transition-all hover:bg-white/[0.12] hover:border-violet-400/40 focus:outline-none focus:border-violet-400/50 focus:bg-white/[0.12]"
-                    style={{
-                      backdropFilter: 'blur(12px)',
-                      boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.2)'
-                    }}
+                    className="w-full sm:w-44 bg-white border border-slate-200 rounded-2xl pl-10 pr-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-slate-400"
                   />
                 </div>
               </div>
             </div>
-            <AttendanceTable data={getFilteredLogs()} />
+            <AttendanceTable data={getFilteredLogs()} viewType={logsViewType} />
           </div>
         );
 
 
       case 'students':
         return <StudentManagementTab onDataChange={invalidateCache} />;
+
+      case 'teachers':
+        return <TeacherManagementTab onDataChange={invalidateCache} />;
 
       case 'about':
         return <AboutTab />;
@@ -587,21 +996,12 @@ export default function Home() {
 
   return (
     <main
-      className="flex min-h-screen text-white font-sans"
-      style={{
-        background: '#0a0812',
-        backgroundImage: `
-          radial-gradient(ellipse at 10% 20%, rgba(102, 126, 234, 0.5), transparent 45%),
-          radial-gradient(ellipse at 90% 30%, rgba(192, 38, 211, 0.35), transparent 45%),
-          radial-gradient(ellipse at 50% 95%, rgba(139, 92, 246, 0.4), transparent 40%),
-          radial-gradient(ellipse at 50% 50%, rgba(102, 126, 234, 0.1), transparent 70%)
-        `
-      }}
+      className="flex min-h-screen font-sans"
     >
       {showWebcam && <WebcamCapture onCapture={handleWebcamCapture} onClose={() => setShowWebcam(false)} />}
 
       {/* MOBILE HEADER - Glass Style */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-20 p-4 flex justify-between items-center bg-white/[0.06] backdrop-blur-[60px] saturate-[200%] border-b border-white/[0.08]">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-20 p-4 flex justify-between items-center bg-[var(--color-cotton-lavender)] border-b border-slate-300/30 shadow-sm">
         <div className="flex items-center gap-2">
           <img src="/attendx_logo.png" alt="AttendX" className="w-8 h-8 rounded-lg object-contain" />
           <h1 className="text-lg font-semibold">AttendX</h1>
@@ -622,43 +1022,37 @@ export default function Home() {
         />
       )}
 
-      {/* SIDEBAR - Deep Liquid Glass */}
+      {/* SIDEBAR - Soft Veil Navigation */}
       <aside className={`
         w-64 fixed h-full z-30 flex flex-col
-        bg-white/[0.06] backdrop-blur-[60px] saturate-[200%]
-        border-r border-white/[0.08]
+        bg-[var(--color-cotton-lavender)] sidebar-paper
+        border-r border-slate-200/50 shadow-[4px_0_24px_rgba(0,0,0,0.03)]
         transition-transform duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
-      `} style={{ boxShadow: 'inset -1px 0 0 rgba(255,255,255,0.05), 4px 0 24px rgba(0,0,0,0.15)' }}>
-        <div className="p-6 border-b border-white/[0.08]">
+      `}>
+        <div className="p-6 border-b border-slate-300/30 relative z-10">
           <div className="flex items-center gap-3">
             <img src="/attendx_logo.png" alt="AttendX" className="w-11 h-11 rounded-xl object-contain" />
             <div>
               <h1 className="text-xl font-semibold m-0 tracking-tight">AttendX</h1>
-              <p className="text-xs text-white/50 mt-0.5">Smart Attendance v2.0</p>
+              <p className="text-xs text-slate-500 mt-0.5">Smart Attendance v2.0</p>
             </div>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
+        <nav className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto relative z-10">
           {TABS.map(tab => (
             <button
               key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id);
-                setSidebarOpen(false);
-              }}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-[14px] text-[0.88rem] font-medium transition-all ${activeTab === tab.id
-                ? 'bg-white/[0.12] text-white border border-white/[0.2]'
-                : 'text-white/60 hover:bg-white/[0.08] hover:text-white/95 border border-transparent'
+              onClick={() => handleTabChange(tab.id)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl text-[0.95rem] font-bold transition-all ${activeTab === tab.id
+                ? 'bg-white text-slate-800 border border-slate-200 shadow-sm'
+                : 'text-slate-500 hover:bg-white/40 hover:text-slate-800 border border-transparent'
                 }`}
-              style={activeTab === tab.id ? { boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.08)' } : {}}
             >
-              {/* Glass icon container */}
               <div
-                className="w-[34px] h-[34px] rounded-[10px] bg-white/[0.1] flex items-center justify-center"
-                style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.15)' }}
+                className={`w-[36px] h-[36px] rounded-[12px] flex items-center justify-center ${activeTab === tab.id ? 'bg-[var(--color-cotton-blue)] text-slate-800 border border-slate-200/50' : 'text-slate-400'}`}
               >
                 {tab.icon}
               </div>
@@ -667,15 +1061,14 @@ export default function Home() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/[0.08]">
-          <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/[0.08] border border-white/[0.1]"
-            style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.15), 0 2px 12px rgba(0,0,0,0.1)' }}>
+        <div className="p-4 border-t border-slate-300/30 relative z-10">
+          <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/40 border border-white/50 shadow-sm">
             <div className="w-9 h-9 rounded-xl bg-white/90 flex items-center justify-center font-bold text-purple-600">
               {user?.displayName?.[0] || 'U'}
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="text-sm font-medium truncate">{user?.displayName || 'User'}</p>
-              <button onClick={logout} className="text-xs text-white/40 hover:text-white/60 text-left">Sign Out</button>
+              <button onClick={logout} className="text-xs text-slate-400 hover:text-slate-600 text-left">Sign Out</button>
             </div>
           </div>
         </div>

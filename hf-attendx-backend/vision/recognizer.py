@@ -132,7 +132,7 @@ def mark_attendance_firestore(name):
         # Fallback to local - skip sync since Firestore is down anyway
         return mark_attendance(name, skip_sync=True)
 
-def recognize_face(image_path):
+def recognize_face(image_path, save=True):
     """Run face recognition on a single image path."""
     known_embeddings = load_embeddings()
     
@@ -163,9 +163,13 @@ def recognize_face(image_path):
             message = "Face not recognized"
             
             if min_dist <= THRESHOLD:
-                is_new, msg = mark_attendance(best_match)
-                status = "present" if is_new else "marked"
-                message = msg
+                if save:
+                    is_new, msg = mark_attendance(best_match)
+                    status = "present" if is_new else "marked"
+                    message = msg
+                else:
+                    status = "detected"
+                    message = "Face matched but not saved"
                 
                 results.append({
                     "name": best_match,

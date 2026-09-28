@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 # ==================== ATTENDANCE LOGS ====================
 
-def save_attendance_log(name: str, date: str, time: str) -> bool:
+def save_attendance_log(name: str, date: str, time: str, class_name: str = "", section: str = "", subject: str = "", source: str = "AI_Camera") -> bool:
     """Save attendance log to Firestore"""
     try:
         db = get_firestore_db()
@@ -17,6 +17,10 @@ def save_attendance_log(name: str, date: str, time: str) -> bool:
             'name': name,
             'date': date,
             'time': time,
+            'class_name': class_name,
+            'section': section,
+            'subject': subject,
+            'source': source,
             'timestamp': firestore.SERVER_TIMESTAMP,
             'created_at': get_ist_now().isoformat()
         })
@@ -41,7 +45,7 @@ def get_attendance_logs(days: int = None) -> list:
             query = query.where('date', '>=', cutoff_date)
         
         docs = query.stream()
-        return [{'Name': d.get('name'), 'Date': d.get('date'), 'Time': d.get('time')} for d in [doc.to_dict() for doc in docs]]
+        return [{'Name': d.get('name'), 'Date': d.get('date'), 'Time': d.get('time'), 'Class': d.get('class_name', ''), 'Section': d.get('section', ''), 'Subject': d.get('subject', ''), 'Source': d.get('source', 'AI_Camera')} for d in [doc.to_dict() for doc in docs]]
     except Exception as e:
         logger.error(f"❌ Failed to fetch logs: {e}")
         return []
@@ -51,7 +55,7 @@ def get_attendance_logs_by_date(date: str) -> list:
     try:
         db = get_firestore_db()
         docs = db.collection('attendance_logs').where('date', '==', date).order_by('time', direction=firestore.Query.DESCENDING).stream()
-        return [{'Name': d.get('name'), 'Date': d.get('date'), 'Time': d.get('time')} for d in [doc.to_dict() for doc in docs]]
+        return [{'Name': d.get('name'), 'Date': d.get('date'), 'Time': d.get('time'), 'Class': d.get('class_name', ''), 'Section': d.get('section', ''), 'Subject': d.get('subject', ''), 'Source': d.get('source', 'AI_Camera')} for d in [doc.to_dict() for doc in docs]]
     except Exception as e:
         logger.error(f"❌ Failed to fetch logs for {date}: {e}")
         return []
@@ -79,7 +83,15 @@ def get_today_attendance() -> dict:
             data = doc.to_dict()
             name = data.get('name', '')
             names_seen.add(name)
-            logs.append({'Name': name, 'Date': data.get('date'), 'Time': data.get('time')})
+            logs.append({
+                'Name': name, 
+                'Date': data.get('date'), 
+                'Time': data.get('time'),
+                'Class': data.get('class_name', ''),
+                'Section': data.get('section', ''),
+                'Subject': data.get('subject', ''),
+                'Source': data.get('source', 'AI_Camera')
+            })
             
         return {
             'logs': logs,
@@ -123,11 +135,12 @@ def clear_today_attendance_firestore() -> int:
 
 # ==================== METADATA & SYNC ====================
 
-def update_student_metadata(name: str, photo_count: int):
+def update_student_metadata(name: str, photo_count: int, class_name: str = "", section: str = "", roll_number: str = ""):
     try:
         db = get_firestore_db()
         db.collection('students').document(name).set({
-            'name': name, 'photo_count': photo_count, 'last_updated': firestore.SERVER_TIMESTAMP
+            'name': name, 'photo_count': photo_count, 'last_updated': firestore.SERVER_TIMESTAMP,
+            'class_name': class_name, 'section': section, 'roll_number': roll_number
         }, merge=True)
     except Exception as e:
         logger.error(f"❌ Failed to update metadata: {e}")
@@ -143,7 +156,7 @@ def get_all_students_from_metadata() -> list:
     try:
         db = get_firestore_db()
         docs = db.collection('students').order_by('name').stream()
-        return [{"name": d.get('name', doc.id), "image_count": d.get('photo_count', 0), "has_embedding": True} for doc, d in [(doc, doc.to_dict()) for doc in docs]]
+        return [{"name": d.get('name', doc.id), "image_count": d.get('photo_count', 0), "has_embedding": True, "class_name": d.get('class_name', ''), "section": d.get('section', ''), "roll_number": d.get('roll_number', '')} for doc, d in [(doc, doc.to_dict()) for doc in docs]]
     except Exception as e:
         logger.error(f"❌ Failed to get students: {e}")
         return []

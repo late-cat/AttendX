@@ -33,19 +33,13 @@ const AlertIcon = () => (
  */
 export default function SyncStatusBanner({ status, onRefresh }) {
     if (status === 'synced') {
-        return (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
-        bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
-                <CheckIcon />
-                <span>Up to date</span>
-            </div>
-        );
+        return null;
     }
 
     if (status === 'syncing') {
         return (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
-        bg-amber-500/10 border border-amber-500/20 text-amber-400 animate-pulse">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold
+        bg-amber-50 border border-amber-100 text-amber-700 shadow-sm animate-pulse">
                 <RefreshIcon className="animate-spin" />
                 <span>Syncing...</span>
             </div>
@@ -56,9 +50,9 @@ export default function SyncStatusBanner({ status, onRefresh }) {
         return (
             <button
                 onClick={onRefresh}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
-          bg-violet-500/15 border border-violet-500/30 text-violet-300
-          hover:bg-violet-500/25 hover:border-violet-400/40 
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold
+          bg-[var(--color-cotton-blue)] border border-blue-200 text-blue-700 shadow-sm
+          hover:bg-blue-100 hover:border-blue-300 
           transition-all duration-200 cursor-pointer group"
             >
                 <AlertIcon />
@@ -70,8 +64,8 @@ export default function SyncStatusBanner({ status, onRefresh }) {
 
     // Default/offline state
     return (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium
-      bg-white/5 border border-white/10 text-white/40">
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold
+      bg-slate-50 border border-slate-200 text-slate-500 shadow-sm">
             <span>•</span>
             <span>Offline</span>
         </div>

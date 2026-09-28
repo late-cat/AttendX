@@ -21,7 +21,7 @@ sys.path.insert(0, current_dir)
 from core.config import settings
 from config.firebase_admin import initialize_firebase
 from services.firebase_storage import download_all_embeddings
-from routers import general, attendance, students
+from routers import general, attendance, students, teachers
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +72,7 @@ async def startup_event():
 app.include_router(general.router)
 app.include_router(attendance.router)
 app.include_router(students.router)
+app.include_router(teachers.router)
 
 if __name__ == "__main__":
     import uvicorn

@@ -8,13 +8,12 @@ export default function CircularProgress({ percentage, label }) {
 
     return (
         <div
-            className="relative p-5 md:p-6 rounded-[22px] bg-white/[0.08] border border-white/[0.2] flex flex-col items-center gap-3 overflow-hidden"
+            className="card flex flex-col items-center gap-3 overflow-hidden"
             style={{
                 ...GLASS_STYLES.card,
-                transform: 'translateZ(0)', // Force GPU layer to prevent blur repaints
+                transform: 'translateZ(0)',
             }}
         >
-            <div className="absolute top-0 left-0 right-0 h-[55%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none rounded-t-[22px]" />
 
             <div className="relative z-10 w-[100px] h-[100px]">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -23,7 +22,7 @@ export default function CircularProgress({ percentage, label }) {
                         cx="50" cy="50" r={radius}
                         fill="none"
                         strokeWidth="6"
-                        stroke="rgba(255,255,255,0.1)"
+                        stroke="rgba(0,0,0,0.08)"
                     />
                     {/* Progress circle */}
                     <circle
@@ -44,10 +43,10 @@ export default function CircularProgress({ percentage, label }) {
                     </defs>
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-bold">{progress.toFixed(1)}%</span>
+                    <span className="text-[2rem] font-bold text-slate-800">{progress.toFixed(1)}%</span>
                 </div>
             </div>
-            <p className="relative z-10 text-white/50 text-[0.7rem] font-medium uppercase tracking-wider">{label}</p>
+            <p className="relative z-10 text-slate-500 text-[0.7rem] font-bold uppercase tracking-wider">{label}</p>
         </div>
     );
 }

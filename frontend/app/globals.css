@@ -1,61 +1,100 @@
 @import "tailwindcss";
+@import "./overrides.css";
 
 :root {
-  /* Deep Liquid Glass Theme */
-  --bg-dark: #0a0812;
-  --bg-card: rgba(255, 255, 255, 0.08);
-  --bg-card-hover: rgba(255, 255, 255, 0.12);
+  /* Veil's Soft Paper / Neumorphic Theme */
+  --color-cotton-pink: #cbf3f0;
+  --color-cotton-blue: #add8e6;
+  --color-cotton-lavender: #e6e6fa;
+  --color-cotton-bg: #e0f8f5;
+  --color-cotton-beige: #f3f0e8;
 
-  --primary: #8b5cf6;
-  --primary-hover: #7c3aed;
-  --accent: #a78bfa;
-  --success: #10b981;
-  --error: #ef4444;
+  --bg-dark: var(--color-cotton-bg);
+  --bg-card: var(--color-cotton-beige); 
+  --bg-card-hover: #ffffff;
 
-  --text-main: #ffffff;
-  --text-muted: rgba(255, 255, 255, 0.55);
+  --primary: #4a5568; 
+  --primary-hover: #2d3748;
+  --accent: #718096;
+  --success: #38a169;
+  --error: #e53e3e;
 
-  --border-glass: rgba(255, 255, 255, 0.15);
-  --border-glass-subtle: rgba(255, 255, 255, 0.08);
+  --text-main: #1e293b; /* Dark slate for high contrast and readability */
+  --text-muted: #64748b; /* Medium slate for secondary text */
 
-  /* Glass Effect */
-  --glass-blur: blur(60px) saturate(200%);
-  --glass-border: 0.5px solid rgba(255, 255, 255, 0.2);
+  --border-glass: rgba(0, 0, 0, 0.06);
+  --border-glass-subtle: rgba(0, 0, 0, 0.03);
+
+  /* Veil Puffy / Neumorphic Effect */
+  --glass-blur: blur(0px);
+  --glass-border: none;
   --glass-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.3),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.08),
-    inset 1px 0 1px rgba(255, 255, 255, 0.05),
-    inset -1px 0 1px rgba(255, 255, 255, 0.05),
-    0 8px 32px rgba(0, 0, 0, 0.12);
+      10px 10px 20px rgba(0, 0, 0, 0.1),
+      -10px -10px 20px rgba(255, 255, 255, 0.8),
+      inset 2px 2px 5px rgba(255, 255, 255, 0.5),
+      inset -2px -2px 5px rgba(0, 0, 0, 0.05);
   --glass-shadow-hover:
-    inset 0 1px 2px rgba(255, 255, 255, 0.35),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.1),
-    0 12px 48px rgba(0, 0, 0, 0.15);
+      15px 15px 25px rgba(0, 0, 0, 0.15),
+      -15px -15px 25px rgba(255, 255, 255, 0.9),
+      inset 3px 3px 6px rgba(255, 255, 255, 0.6),
+      inset -2px -2px 5px rgba(0, 0, 0, 0.02);
 
   --shadow-card: var(--glass-shadow);
-  --shadow-glow: 0 0 20px rgba(139, 92, 246, 0.2);
+  --shadow-glow: none;
 
-  --radius-lg: 22px;
-  --radius-md: 14px;
-  --radius-sm: 10px;
+  --radius-lg: 32px;
+  --radius-md: 20px;
+  --radius-sm: 12px;
 }
 
 body {
   background-color: var(--bg-dark);
-  background-image:
-    /* Large purple glow - top left */
-    radial-gradient(ellipse at 10% 20%, rgba(102, 126, 234, 0.5), transparent 45%),
-    /* Pink/magenta glow - right side */
-    radial-gradient(ellipse at 90% 30%, rgba(192, 38, 211, 0.35), transparent 45%),
-    /* Violet glow - bottom center */
-    radial-gradient(ellipse at 50% 95%, rgba(139, 92, 246, 0.4), transparent 40%),
-    /* Deep ambient */
-    radial-gradient(ellipse at 50% 50%, rgba(102, 126, 234, 0.1), transparent 70%);
   color: var(--text-main);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   margin: 0;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.15;
+  z-index: 9999;
+  background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
+}
+
+/* Felt paper texture on the background surface */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.35;
+  z-index: 0;
+  background-image: url("https://www.transparenttextures.com/patterns/felt.png");
+}
+
+/* Sidebar paper texture */
+.sidebar-paper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  pointer-events: none;
+  background-image: url("https://www.transparenttextures.com/patterns/felt.png");
+  z-index: 0;
+  border-radius: inherit;
 }
 
 /* --- Layout --- */
@@ -103,24 +142,28 @@ body {
   overflow: hidden;
 }
 
-/* Glass gradient overlay */
+/* Soft highlight overlay - removed for flat neumorphic look */
 .card::before {
+  display: none;
+}
+
+/* Texture overlay for cards */
+.card::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 55%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+  inset: 0;
+  opacity: 0.4;
   pointer-events: none;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background-image: url("https://www.transparenttextures.com/patterns/felt.png");
+  z-index: 10;
+  border-radius: inherit;
 }
 
 .card:hover {
   background: var(--bg-card-hover);
-  border-color: rgba(255, 255, 255, 0.28);
+  border-color: rgba(255, 255, 255, 1);
   box-shadow: var(--glass-shadow-hover);
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 .card-header {
@@ -144,7 +187,7 @@ h1 {
   font-size: 2rem;
   font-weight: 700;
   margin: 0;
-  background: linear-gradient(to right, #fff, #94a3b8);
+  background: linear-gradient(to right, #0f172a, #334155);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -189,44 +232,44 @@ h1 {
 }
 
 .btn-primary {
-  background: rgba(139, 92, 246, 0.25);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  color: white;
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 4px 12px rgba(139, 92, 246, 0.2);
+  background: var(--color-cotton-blue);
+  color: var(--text-main);
+  border: 1px solid var(--color-slate-200);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+  font-weight: 700;
+  border-radius: 16px;
 }
 
 .btn-primary:hover {
-  background: rgba(139, 92, 246, 0.4);
-  border-color: rgba(139, 92, 246, 0.6);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 6px 20px rgba(139, 92, 246, 0.3);
+  background: #99cbe0; /* slightly darker cotton blue */
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.9);
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  background: white;
+  color: var(--text-main);
+  border: 1px solid var(--color-slate-200);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02), inset 0 1px 1px rgba(255, 255, 255, 1);
+  font-weight: 700;
+  border-radius: 16px;
 }
 
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: var(--color-slate-50);
+  border-color: var(--color-slate-300);
 }
 
 
 .btn-danger {
-  color: var(--error);
-  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.8);
+  border: 1px solid rgba(252, 165, 165, 0.5);
   padding: 0.5rem 1rem;
   font-size: 0.85rem;
 }
 
 .btn-danger:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(254, 202, 202, 1);
 }
 
 /* --- Forms --- */
@@ -251,9 +294,9 @@ h1 {
 }
 
 .status-active {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: rgba(209, 250, 229, 0.8);
+  color: #059669;
+  border: 1px solid rgba(167, 243, 208, 1);
 }
 
 .status-live {
@@ -287,28 +330,32 @@ h1 {
   align-items: center;
   justify-content: space-between;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.4);
   border-radius: var(--radius-md);
   margin-bottom: 0.75rem;
-  border: 1px solid transparent;
-  transition: border-color 0.2s;
+  border: 1px solid var(--border-glass-subtle);
+  transition: all 0.2s;
 }
 
 .log-item:hover {
-  border-color: var(--border-glass);
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
 }
 
 .log-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary), var(--accent));
+  background: var(--primary);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
   font-size: 1.1rem;
   margin-right: 1rem;
+  box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.3);
 }
 
 .log-info h4 {
@@ -345,28 +392,38 @@ h1 {
   border: none;
 }
 
-/* --- Glass Panel --- */
+/* --- Soft Panel --- */
 .glass-panel {
   position: relative;
   background: var(--bg-card);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: var(--glass-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--glass-shadow);
+  padding: 1.5rem;
   overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* Glass panel gradient overlay */
-.glass-panel::before {
+.glass-panel:hover {
+  box-shadow: var(--glass-shadow-hover);
+  transform: translateY(-2px);
+}
+
+/* Panel texture */
+.glass-panel::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 55%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+  inset: 0;
+  opacity: 0.4;
   pointer-events: none;
+  background-image: url("https://www.transparenttextures.com/patterns/felt.png");
+  z-index: 10;
+  border-radius: inherit;
+}
+
+/* Panel highlight overlay */
+.glass-panel::before {
+  display: none;
 }
 
 /* --- Animations --- */
@@ -427,15 +484,15 @@ h1 {
 
 /* ====== LOGIN PAGE STYLES ====== */
 
-/* Animated gradient background */
+/* Animated soft gradient background for login */
 .login-page-bg {
   min-height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #da80e4 100%);
+  background: linear-gradient(135deg, #e0e7ff 0%, #f3e8ff 50%, #fdf4ff 100%);
   background-size: 400% 400%;
-  animation: gradientShift 8s ease infinite;
+  animation: gradientShift 10s ease infinite;
   position: relative;
   overflow: hidden;
   padding: 1rem;
@@ -469,10 +526,10 @@ h1 {
 
 .particle {
   position: absolute;
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.8);
   border-radius: 50%;
   animation: float 15s infinite;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 0 0 20px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .particle:nth-child(1) {
@@ -661,18 +718,27 @@ h1 {
 
 /* Login card */
 .login-card-new {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: var(--bg-dark);
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: var(--glass-border);
   padding: 50px 40px;
   width: 100%;
   max-width: 400px;
   text-align: center;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  box-shadow: var(--glass-shadow);
   position: relative;
   z-index: 1;
+}
+
+.login-card-new::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.4;
+  pointer-events: none;
+  background-image: url("https://www.transparenttextures.com/patterns/felt.png");
+  z-index: 10;
+  border-radius: inherit;
 }
 
 .login-logo-img {
@@ -687,18 +753,16 @@ h1 {
 .login-app-name {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #fff;
+  color: #1e293b;
   margin-bottom: 8px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  background: none;
-  -webkit-text-fill-color: #fff;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .login-tagline {
-  color: rgba(255, 255, 255, 0.8);
+  color: #64748b;
   font-size: 1rem;
   margin-bottom: 40px;
-  font-weight: 400;
+  font-weight: 500;
 }
 
 .login-google-btn {
@@ -732,7 +796,7 @@ h1 {
   display: flex;
   align-items: center;
   margin: 30px 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: #94a3b8;
   font-size: 0.85rem;
 }
 
@@ -741,7 +805,7 @@ h1 {
   content: '';
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .login-divider span {
@@ -759,13 +823,14 @@ h1 {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: rgba(255, 255, 255, 0.7);
+  color: #64748b;
   font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .login-footer {
   margin-top: 30px;
-  color: rgba(255, 255, 255, 0.5);
+  color: #94a3b8;
   font-size: 0.8rem;
 }
 
@@ -824,20 +889,17 @@ h1 {
 /* ====== STUDENT LIQUID CARD ====== */
 .student-liquid-card {
   position: relative;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
+  border: 1px solid var(--color-slate-200);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .student-liquid-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.06);
 }
 
 /* Static liquid fill background */
@@ -851,17 +913,20 @@ h1 {
   z-index: 0;
 }
 
-/* Color variants - clean gradients */
+/* Color variants - soft pastel colors for paper */
 .student-liquid-card.liquid-green::before {
-  background: linear-gradient(90deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.08));
+  background: var(--color-cotton-green);
+  opacity: 0.4;
 }
 
 .student-liquid-card.liquid-yellow::before {
-  background: linear-gradient(90deg, rgba(234, 179, 8, 0.25), rgba(234, 179, 8, 0.08));
+  background: var(--color-cotton-yellow);
+  opacity: 0.4;
 }
 
 .student-liquid-card.liquid-red::before {
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.25), rgba(239, 68, 68, 0.08));
+  background: var(--color-cotton-pink);
+  opacity: 0.4;
 }
 
 /* Content layer */
@@ -875,26 +940,25 @@ h1 {
   gap: 12px;
 }
 
-/* Glass Delete Button (macOS style) */
+/* Delete Button */
 .glass-delete-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  border-radius: 10px;
+  background: var(--color-slate-50);
+  border: 1px solid var(--color-slate-200);
+  color: var(--color-slate-400);
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
 }
 
 .glass-delete-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: var(--color-cotton-pink);
+  border-color: #fca5a5;
+  color: #ef4444;
   transform: scale(1.05);
 }
 
@@ -905,7 +969,7 @@ h1 {
 .glass-delete-btn svg {
   width: 16px;
   height: 16px;
-  stroke: rgba(255, 255, 255, 0.7);
+  stroke: var(--color-slate-400);
   transition: stroke 0.2s;
 }
 
@@ -919,17 +983,18 @@ h1 {
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  border: 1px solid var(--color-slate-200);
+  background: white;
   overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .skeleton-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.06) 75%);
+  background: linear-gradient(90deg, var(--color-slate-50) 25%, var(--color-slate-100) 50%, var(--color-slate-50) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   flex-shrink: 0;
@@ -945,7 +1010,7 @@ h1 {
 .skeleton-text {
   height: 12px;
   border-radius: 4px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.06) 75%);
+  background: linear-gradient(90deg, var(--color-slate-50) 25%, var(--color-slate-100) 50%, var(--color-slate-50) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
@@ -963,7 +1028,7 @@ h1 {
   width: 40px;
   height: 24px;
   border-radius: 6px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.06) 75%);
+  background: linear-gradient(90deg, var(--color-slate-50) 25%, var(--color-slate-100) 50%, var(--color-slate-50) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   flex-shrink: 0;

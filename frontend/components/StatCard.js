@@ -3,22 +3,19 @@ import { GLASS_STYLES } from '../lib/styles';
 export default function StatCard({ label, value, icon }) {
     return (
         <div
-            className="relative p-5 md:p-6 rounded-[22px] bg-white/[0.08] border border-white/[0.2] flex flex-col items-center text-center gap-3 overflow-hidden"
+            className="card flex flex-col items-center text-center gap-3 overflow-hidden"
             style={{
                 ...GLASS_STYLES.card,
                 transform: 'translateZ(0)', // Force GPU layer to prevent blur repaints
             }}
         >
-            {/* Glass gradient overlay */}
-            <div className="absolute top-0 left-0 right-0 h-[55%] bg-gradient-to-b from-white/10 to-transparent pointer-events-none rounded-t-[22px]" />
-
-            <div className="relative z-10 w-[50px] h-[50px] bg-white/[0.12] border border-white/[0.15] rounded-[14px] flex items-center justify-center"
+            <div className="relative z-10 w-[50px] h-[50px] bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700"
                 style={GLASS_STYLES.iconContainer}>
                 {icon}
             </div>
             <div className="relative z-10">
-                <p className="text-white/50 text-[0.7rem] font-medium uppercase tracking-wider mb-1">{label}</p>
-                <p className="text-[1.6rem] font-semibold tracking-tight">{value}</p>
+                <p className="text-slate-500 text-[0.7rem] font-bold uppercase tracking-wider mb-1">{label}</p>
+                <p className="text-[2rem] font-bold tracking-tight text-slate-800">{value}</p>
             </div>
         </div>
     );

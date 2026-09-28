@@ -6,6 +6,9 @@ import {
 
 export default function StudentManagementTab({ onDataChange }) {
     const [studentName, setStudentName] = useState('');
+    const [studentClass, setStudentClass] = useState('');
+    const [studentSection, setStudentSection] = useState('');
+    const [studentRoll, setStudentRoll] = useState('');
     const [selectedFiles, setSelectedFiles] = useState([]);
     const [isRegistering, setIsRegistering] = useState(false);
     const [message, setMessage] = useState('');
@@ -62,6 +65,9 @@ export default function StudentManagementTab({ onDataChange }) {
         try {
             const formData = new FormData();
             formData.append('name', studentName);
+            formData.append('class_name', studentClass);
+            formData.append('section', studentSection);
+            formData.append('roll_number', studentRoll);
             selectedFiles.forEach(file => formData.append('files', file));
 
             const res = await authenticatedFetch('/register-student', {
@@ -78,6 +84,9 @@ export default function StudentManagementTab({ onDataChange }) {
 
             setMessage(data.message);
             setStudentName('');
+            setStudentClass('');
+            setStudentSection('');
+            setStudentRoll('');
             setSelectedFiles([]);
 
             // Refresh student list and notify parent
@@ -125,7 +134,7 @@ export default function StudentManagementTab({ onDataChange }) {
             {/* Register New Student */}
             <div className="glass-panel p-8 max-w-2xl mx-auto w-full">
                 <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-white/[0.12] border border-white/[0.15] rounded-[12px] flex items-center justify-center" style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2)' }}>
+                    <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
                         <UserPlusIcon />
                     </div>
                     <h2 className="m-0">Register New Student</h2>
@@ -134,30 +143,65 @@ export default function StudentManagementTab({ onDataChange }) {
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                     <div>
-                        <label className="block text-sm font-medium mb-2">Student Name</label>
+                        <label className="block text-sm font-bold mb-2 text-slate-700">Student Name</label>
                         <input
                             type="text"
                             value={studentName}
                             onChange={(e) => setStudentName(e.target.value)}
-                            className="w-full bg-white/5 border border-glass-border rounded px-4 py-3 focus:outline-none focus:border-blue-500"
+                            className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm placeholder:text-slate-400"
                             placeholder="Enter full name"
                             required
                         />
                     </div>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                        <div>
+                            <label className="block text-sm font-bold mb-2 text-slate-700">Class</label>
+                            <input
+                                type="text"
+                                value={studentClass}
+                                onChange={(e) => setStudentClass(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm placeholder:text-slate-400"
+                                placeholder="e.g. 10"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold mb-2 text-slate-700">Section</label>
+                            <input
+                                type="text"
+                                value={studentSection}
+                                onChange={(e) => setStudentSection(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm placeholder:text-slate-400"
+                                placeholder="e.g. A"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold mb-2 text-slate-700">Roll Number</label>
+                            <input
+                                type="text"
+                                value={studentRoll}
+                                onChange={(e) => setStudentRoll(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm placeholder:text-slate-400"
+                                placeholder="e.g. 12"
+                                required
+                            />
+                        </div>
+                    </div>
 
                     <div>
-                        <label className="block text-sm font-medium mb-2">Upload Photos (3-5 recommended)</label>
+                        <label className="block text-sm font-bold mb-2 text-slate-700">Upload Photos (3-5 recommended)</label>
                         <input
                             type="file"
                             multiple
                             accept="image/*"
                             onChange={handleFileChange}
-                            className="w-full bg-white/[0.08] border border-white/[0.15] rounded-lg px-4 py-3 text-white/70 file:mr-4 file:py-2.5 file:px-5 file:rounded-lg file:border file:border-white/[0.25] file:bg-white/[0.12] file:text-white file:font-medium file:cursor-pointer hover:file:bg-white/[0.18] file:transition-colors file:shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)]"
-                            style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.1), 0 2px 8px rgba(0,0,0,0.15)', backdropFilter: 'blur(12px)' }}
+                            className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-600 shadow-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-[var(--color-cotton-blue)] file:text-slate-700 file:font-bold file:cursor-pointer hover:file:bg-[var(--color-cotton-pink)] file:transition-colors file:text-sm"
                             required
                         />
                         {selectedFiles.length > 0 && (
-                            <p className="text-sm text-secondary mt-2">{selectedFiles.length} file(s) selected</p>
+                            <p className="text-sm text-slate-500 mt-2 font-medium">{selectedFiles.length} file(s) selected</p>
                         )}
                     </div>
 
@@ -181,8 +225,8 @@ export default function StudentManagementTab({ onDataChange }) {
             <div className="glass-panel p-8 max-w-2xl mx-auto w-full">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-white/[0.12] border border-white/[0.12] rounded-[11px] flex items-center justify-center" style={{ boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.2)' }}>
-                            <UsersIcon size="lg" strokeColor="white" />
+                        <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
+                            <UsersIcon size="lg" strokeColor="currentColor" />
                         </div>
                         <h2 className="m-0">Registered Students</h2>
                     </div>
@@ -219,18 +263,18 @@ export default function StudentManagementTab({ onDataChange }) {
                                 >
                                     <div className="student-card-content">
                                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                                            <div className="w-10 h-10 rounded-full bg-[var(--color-cotton-blue)] border border-slate-200/50 flex items-center justify-center text-sm font-bold text-slate-700 flex-shrink-0">
                                                 {student.name?.[0]?.toUpperCase() || '?'}
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="font-medium truncate">{student.name}</p>
-                                                <p className="text-xs text-white/60">
-                                                    {student.image_count} photos • {student.has_embedding ? <span className="text-green-400">✓ Ready</span> : <span className="text-yellow-400">⚠ No embedding</span>}
+                                                <p className="font-bold text-slate-800 truncate">{student.name}</p>
+                                                <p className="text-xs text-slate-500">
+                                                    {student.image_count} photos • {student.has_embedding ? <span className="text-green-600 font-bold">✓ Ready</span> : <span className="text-amber-600 font-bold">⚠ No embedding</span>}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-2 flex-shrink-0">
-                                            <span className="text-xs font-semibold px-2 py-1 rounded bg-black/20">{pct}%</span>
+                                            <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-700 shadow-sm">{pct}%</span>
                                             <button
                                                 onClick={() => handleDelete(student.name)}
                                                 disabled={deletingStudent === student.name}

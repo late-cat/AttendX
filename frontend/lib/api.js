@@ -1,6 +1,6 @@
 
 // API Configuration
-const API_BASE_URL = 'https://catxc-attendx-backend.hf.space';
+const API_BASE_URL = 'http://localhost:7860';
 
 // Default API Key (should be in env vars for production)
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || 'attendx-secret-key-change-me';
