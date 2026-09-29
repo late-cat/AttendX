@@ -407,13 +407,11 @@ export default function Home() {
         
         const allStudentNames = allStudents.map(s => s.name);
         const validDetectedFaces = detectedFaces.filter(f => allStudentNames.includes(f.name)); 
-        const anomalyFaces = detectedFaces.filter(f => !allStudentNames.includes(f.name)); 
         
         setScanResult({
-          status: validDetectedFaces.length > 0 ? 'success' : (anomalyFaces.length > 0 ? 'warning' : 'error'),
+          status: validDetectedFaces.length > 0 ? 'success' : 'error',
           faces: data.details,
-          validFaces: validDetectedFaces,
-          anomalyFaces: anomalyFaces
+          validFaces: validDetectedFaces
         });
         
         if (detectedFaces.length > 0 || classStudents.length > 0) {
@@ -755,26 +753,7 @@ export default function Home() {
                     </div>
                  </div>
                  
-                 {scanResult.anomalyFaces && scanResult.anomalyFaces.length > 0 && (
-                     <div className="mt-6 bg-white border border-amber-200 rounded-2xl p-6 shadow-[0_2px_12px_rgba(245,158,11,0.08)] text-left">
-                        <div className="flex items-center gap-3 border-b border-amber-100 pb-3 mb-4">
-                           <div className="p-2 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
-                              <InfoIcon />
-                           </div>
-                           <h3 className="text-base font-bold text-amber-900 m-0">
-                              Out of Class / Visitors Detected <span className="text-sm font-semibold text-amber-600 ml-1">({scanResult.anomalyFaces.length})</span>
-                           </h3>
-                        </div>
-                        <p className="text-sm text-amber-700 mb-4">The following faces were detected in the camera but are either not registered students or were not recognized. They will not be marked present.</p>
-                        <div className="flex flex-wrap gap-2">
-                           {scanResult.anomalyFaces.map((face, idx) => (
-                              <span key={idx} className="bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-3 py-1 rounded-lg">
-                                 {face.name}
-                              </span>
-                           ))}
-                        </div>
-                     </div>
-                 )}
+
                  
                  <div className="mt-8 flex justify-end gap-4">
                     <button 
