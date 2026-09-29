@@ -437,7 +437,7 @@ export default function Home() {
      setIsUploading(true);
      setUploadStatus("Saving...");
      try {
-        const detectedFaces = scanResult.faces.filter(f => f.status === 'detected' || f.status === 'present' || f.status === 'marked').map(f => f.name);
+        const detectedFaces = scanResult.validFaces.map(f => f.name);
         
         const records = [
            ...detectedFaces.map(name => ({ name, source: "AI_Camera" })),
@@ -462,11 +462,17 @@ export default function Home() {
         });
         
         if (res.ok) {
+           const data = await res.json();
+           if (data.status === 'duplicate') {
+               alert(data.message); // e.g. "Attendance already marked for this class today."
+           } else {
+               alert(data.message || "Attendance finalized successfully!");
+           }
+           
            setReviewMode(false);
            setScanResult(null);
            setImagePreview(null);
            setManualOverrides([]);
-           alert("Attendance finalized successfully!");
            
            // Invalidate cache and refresh
            invalidateCache();
@@ -488,8 +494,24 @@ export default function Home() {
   };
 
   const exportCSV = () => {
-    const csvContent = "Name,Date,Time\n" +
-      todayLogs.map(log => `${log.Name},${formatDate(log.Date)},${formatTime(log.Time)}`).join("\n");
+    let dataToExport = [];
+    if (activeTab === 'today') {
+       dataToExport = getFilteredTodayLogs();
+    } else if (activeTab === 'logs') {
+       dataToExport = getFilteredLogs();
+    } else {
+       dataToExport = todayLogs;
+    }
+
+    let csvContent = "";
+    if (logsViewType === 'teachers') {
+       csvContent = "Teacher Name,Date,Check In,Check Out,Status\n" +
+          dataToExport.map(log => `${log.Name},${formatDate(log.Date)},${log['Check In'] ? formatTime(log['Check In']) : '-'},${log['Check Out'] ? formatTime(log['Check Out']) : '-'},Present`).join("\n");
+    } else {
+       csvContent = "Name,Class,Section,Subject,Date,Time,Status\n" +
+          dataToExport.map(log => `${log.Name},${log.Class || 'N/A'},${log.Section || 'N/A'},${log.Subject || 'N/A'},${formatDate(log.Date)},${formatTime(log.Time)},Present`).join("\n");
+    }
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1062,6 +1084,7 @@ export default function Home() {
                     className="w-full sm:w-44 bg-white border border-slate-200 rounded-2xl pl-10 pr-3 py-2 text-sm text-slate-800 placeholder:text-slate-400 shadow-sm focus:outline-none focus:border-slate-400"
                   />
                 </div>
+                <button onClick={exportCSV} className="btn btn-secondary text-sm flex items-center gap-2 rounded-2xl h-[38px]">{Icons.downloadLg} Export CSV</button>
               </div>
             </div>
             <AttendanceTable data={getFilteredLogs()} viewType={logsViewType} />

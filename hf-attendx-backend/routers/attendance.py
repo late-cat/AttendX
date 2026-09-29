@@ -101,6 +101,7 @@ def finalize_attendance(request: FinalizeAttendanceRequest):
     time_str = now.strftime("%H:%M:%S")
     
     saved_count = 0
+    duplicate_count = 0
     try:
         for record in request.records:
             # Check if already marked
@@ -115,10 +116,15 @@ def finalize_attendance(request: FinalizeAttendanceRequest):
                     record.source
                 )
                 saved_count += 1
+            else:
+                duplicate_count += 1
                 
         if saved_count > 0:
             bump_sync_version("attendance")
             cache.invalidate_all()
+            
+        if saved_count == 0 and duplicate_count > 0:
+            return {"status": "duplicate", "message": "Attendance already marked for this class today."}
             
         return {"status": "success", "message": f"Saved {saved_count} new attendance records."}
     except Exception as e:
