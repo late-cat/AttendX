@@ -33,10 +33,12 @@ def sanitize_student_name(name: str) -> str:
     return sanitized
 
 @router.post("/recognize")
-async def recognize_api(request: Request, file: UploadFile = File(...), save: bool = Form(True)):
+async def recognize_api(request: Request, file: UploadFile = File(...), save: str = Form("true")):
     """Recognize faces in uploaded image. Public endpoint (for now)."""
     if not file:
         raise HTTPException(status_code=400, detail="No file uploaded")
+        
+    should_save = str(save).lower() in ("true", "1", "yes")
     
     temp_filename = f"{uuid.uuid4()}.jpg"
     temp_path = os.path.join(settings.TEMP_DIR, temp_filename)
@@ -45,7 +47,7 @@ async def recognize_api(request: Request, file: UploadFile = File(...), save: bo
         with open(temp_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        results = recognize_face(temp_path, save=save)
+        results = recognize_face(temp_path, save=should_save)
         
         # Cleanup
         if os.path.exists(temp_path): os.remove(temp_path)
