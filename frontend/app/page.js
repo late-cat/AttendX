@@ -405,8 +405,9 @@ export default function Home() {
         const classStudents = allStudents.filter(s => s.class_name == sessionClass && s.section == sessionSection);
         const classStudentNames = classStudents.map(s => s.name);
         
-        const validDetectedFaces = detectedFaces; // Accept all recognized faces
-        const anomalyFaces = []; // Disable visitor/anomaly checking
+        const allStudentNames = allStudents.map(s => s.name);
+        const validDetectedFaces = detectedFaces.filter(f => allStudentNames.includes(f.name)); 
+        const anomalyFaces = detectedFaces.filter(f => !allStudentNames.includes(f.name)); 
         
         setScanResult({
           status: validDetectedFaces.length > 0 ? 'success' : (anomalyFaces.length > 0 ? 'warning' : 'error'),
