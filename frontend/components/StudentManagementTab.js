@@ -157,25 +157,41 @@ export default function StudentManagementTab({ onDataChange }) {
                     <div className="grid grid-cols-3 gap-4">
                         <div>
                             <label className="block text-sm font-bold mb-2 text-slate-700">Class</label>
-                            <input
-                                type="text"
-                                value={studentClass}
-                                onChange={(e) => setStudentClass(e.target.value)}
-                                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm placeholder:text-slate-400"
-                                placeholder="e.g. 10"
-                                required
-                            />
+                            <div className="relative">
+                                <select
+                                    value={studentClass}
+                                    onChange={(e) => setStudentClass(e.target.value)}
+                                    className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 pr-10 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm appearance-none cursor-pointer"
+                                    required
+                                >
+                                    <option value="" disabled>Select</option>
+                                    {[5, 6, 7, 8, 9, 10, 11, 12].map(c => (
+                                        <option key={c} value={String(c)}>Class {c}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-2 text-slate-700">Section</label>
-                            <input
-                                type="text"
-                                value={studentSection}
-                                onChange={(e) => setStudentSection(e.target.value)}
-                                className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm placeholder:text-slate-400"
-                                placeholder="e.g. A"
-                                required
-                            />
+                            <div className="relative">
+                                <select
+                                    value={studentSection}
+                                    onChange={(e) => setStudentSection(e.target.value)}
+                                    className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 pr-10 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm appearance-none cursor-pointer"
+                                    required
+                                >
+                                    <option value="" disabled>Select</option>
+                                    {['A', 'B', 'C', 'D', 'E'].map(s => (
+                                        <option key={s} value={s}>Section {s}</option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-bold mb-2 text-slate-700">Roll Number</label>
@@ -185,7 +201,6 @@ export default function StudentManagementTab({ onDataChange }) {
                                 onChange={(e) => setStudentRoll(e.target.value)}
                                 className="w-full bg-white border border-slate-200 rounded-2xl px-4 py-3 text-slate-800 focus:outline-none focus:border-slate-400 shadow-sm placeholder:text-slate-400"
                                 placeholder="e.g. 12"
-                                required
                             />
                         </div>
                     </div>

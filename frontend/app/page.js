@@ -437,7 +437,7 @@ export default function Home() {
      setIsUploading(true);
      setUploadStatus("Saving...");
      try {
-        const detectedFaces = scanResult.validFaces.map(f => f.name);
+        const detectedFaces = (scanResult.validFaces || []).map(f => f.name);
         
         const records = [
            ...detectedFaces.map(name => ({ name, source: "AI_Camera" })),
@@ -483,7 +483,8 @@ export default function Home() {
              setSyncStatus('synced');
            }, 1000);
         } else {
-           alert("Error saving attendance.");
+           const errData = await res.json().catch(() => ({}));
+           alert(errData.detail || errData.message || "Error saving attendance. Please try again.");
         }
      } catch (e) {
         console.error(e);
@@ -541,6 +542,17 @@ export default function Home() {
     }
   };
 
+  // Enrich logs: fill missing Class/Section from student metadata
+  const enrichLog = (log) => {
+    if ((!log.Class || log.Class === '') && log.Name) {
+      const student = allStudents.find(s => s.name === log.Name);
+      if (student) {
+        return { ...log, Class: student.class_name || '', Section: student.section || '' };
+      }
+    }
+    return log;
+  };
+
   // Filter logs - date filtering is now done by backend, only search filtering here
   const getFilteredLogs = () => {
     if (logsViewType === 'teachers') {
@@ -551,7 +563,7 @@ export default function Home() {
       return logs;
     }
 
-    let logs = [...allLogs];
+    let logs = allLogs.map(enrichLog);
 
     if (filterClass !== 'All') logs = logs.filter(log => log.Class == filterClass);
     if (filterSection !== 'All') logs = logs.filter(log => log.Section == filterSection);
@@ -568,7 +580,7 @@ export default function Home() {
   const getFilteredTodayLogs = () => {
     if (logsViewType === 'teachers') return [...teacherTodayLogs];
     
-    let logs = [...todayLogs];
+    let logs = todayLogs.map(enrichLog);
     
     if (filterClass !== 'All') logs = logs.filter(log => log.Class == filterClass);
     if (filterSection !== 'All') logs = logs.filter(log => log.Section == filterSection);

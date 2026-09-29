@@ -138,10 +138,17 @@ def clear_today_attendance_firestore() -> int:
 def update_student_metadata(name: str, photo_count: int, class_name: str = "", section: str = "", roll_number: str = ""):
     try:
         db = get_firestore_db()
-        db.collection('students').document(name).set({
+        doc_data = {
             'name': name, 'photo_count': photo_count, 'last_updated': firestore.SERVER_TIMESTAMP,
-            'class_name': class_name, 'section': section, 'roll_number': roll_number
-        }, merge=True)
+        }
+        # Only write class/section/roll if non-empty, to prevent overwriting existing values
+        if class_name and class_name.strip():
+            doc_data['class_name'] = class_name.strip()
+        if section and section.strip():
+            doc_data['section'] = section.strip().upper()
+        if roll_number and roll_number.strip():
+            doc_data['roll_number'] = roll_number.strip()
+        db.collection('students').document(name).set(doc_data, merge=True)
     except Exception as e:
         logger.error(f"❌ Failed to update metadata: {e}")
 
