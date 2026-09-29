@@ -401,7 +401,7 @@ export default function Home() {
       const data = await res.json();
 
       if (data.details && data.details.length > 0) {
-        const detectedFaces = data.details.filter(d => d.status === 'detected' || d.status === 'present' || d.status === 'marked');
+        const detectedFaces = data.details.filter(d => ['detected', 'present', 'marked', 'unknown'].includes(d.status));
         const classStudents = allStudents.filter(s => s.class_name == sessionClass && s.section == sessionSection);
         const classStudentNames = classStudents.map(s => s.name);
         
@@ -731,7 +731,7 @@ export default function Home() {
                               Out of Class / Visitors Detected <span className="text-sm font-semibold text-amber-600 ml-1">({scanResult.anomalyFaces.length})</span>
                            </h3>
                         </div>
-                        <p className="text-sm text-amber-700 mb-4">The following people were detected in the camera but are not registered in {sessionClass} Section {sessionSection}. They will not be marked present.</p>
+                        <p className="text-sm text-amber-700 mb-4">The following faces were detected in the camera but are either not registered students or were not recognized. They will not be marked present.</p>
                         <div className="flex flex-wrap gap-2">
                            {scanResult.anomalyFaces.map((face, idx) => (
                               <span key={idx} className="bg-amber-50 border border-amber-200 text-amber-800 text-sm font-medium px-3 py-1 rounded-lg">

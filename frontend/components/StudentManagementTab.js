@@ -269,7 +269,7 @@ export default function StudentManagementTab({ onDataChange }) {
                                             <div className="min-w-0 flex-1">
                                                 <p className="font-bold text-slate-800 truncate">{student.name}</p>
                                                 <p className="text-xs text-slate-500">
-                                                    {student.image_count} photos • {student.has_embedding ? <span className="text-green-600 font-bold">✓ Ready</span> : <span className="text-amber-600 font-bold">⚠ No embedding</span>}
+                                                    Class {student.class_name || '?'} • Sec {student.section || '?'} • {student.image_count} photos • {student.has_embedding ? <span className="text-green-600 font-bold">✓ Ready</span> : <span className="text-amber-600 font-bold">⚠ No embedding</span>}
                                                 </p>
                                             </div>
                                         </div>
