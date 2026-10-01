@@ -54,16 +54,21 @@ async def startup_event():
         initialize_firebase()
         logger.info("✅ Firebase initialized")
         
-        # Smart embedding caching
+        # Student Embeddings
         os.makedirs(settings.EMBEDDINGS_DIR, exist_ok=True)
         local_embeddings = [f for f in os.listdir(settings.EMBEDDINGS_DIR) if f.endswith('.npy')]
-        
         if len(local_embeddings) == 0:
-            logger.info("📥 No local embeddings found. Downloading from Firebase...")
-            count = download_all_embeddings(settings.EMBEDDINGS_DIR)
-            logger.info(f"✅ Downloaded {count} embeddings")
-        else:
-            logger.info(f"✅ Using {len(local_embeddings)} cached embeddings")
+            logger.info("📥 Downloading student embeddings from Firebase...")
+            count = download_all_embeddings(settings.EMBEDDINGS_DIR, prefix="embeddings/")
+            logger.info(f"✅ Downloaded {count} student embeddings")
+
+        # Teacher Embeddings
+        os.makedirs(settings.TEACHER_EMBEDDINGS_DIR, exist_ok=True)
+        local_t_embeddings = [f for f in os.listdir(settings.TEACHER_EMBEDDINGS_DIR) if f.endswith('.npy')]
+        if len(local_t_embeddings) == 0:
+            logger.info("📥 Downloading teacher embeddings from Firebase...")
+            count = download_all_embeddings(settings.TEACHER_EMBEDDINGS_DIR, prefix="teacher_embeddings/")
+            logger.info(f"✅ Downloaded {count} teacher embeddings")
             
     except Exception as e:
         logger.error(f"⚠️ Startup warning: {e}")

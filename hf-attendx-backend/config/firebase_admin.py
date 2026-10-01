@@ -7,6 +7,7 @@ Only handles initialization and client retrieval.
 import firebase_admin
 from firebase_admin import credentials, storage, firestore
 import os
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -29,19 +30,33 @@ def initialize_firebase():
         return _bucket
     
     try:
-        import json
-        # Try env var first
+        # Production deployments must provide the credential through the
+        # environment.  The checked-out local key is only a development
+        # convenience and must never be used as a production fallback.
         service_account_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
+        runtime_environment = os.environ.get(
+            "APP_ENV", os.environ.get("ENVIRONMENT", "local")
+        ).strip().lower()
+        is_production = runtime_environment in {"production", "prod"} or bool(
+            os.environ.get("SPACE_ID") or os.environ.get("HF_SPACE_ID")
+        )
         
         if service_account_json:
             service_account_info = json.loads(service_account_json)
             cred = credentials.Certificate(service_account_info)
             logger.info("✅ Using Firebase credentials from environment")
         else:
-            # Fallback to local
+            if is_production:
+                raise RuntimeError(
+                    "FIREBASE_SERVICE_ACCOUNT is required in production"
+                )
+
+            # Local development fallback only.
             service_account_path = os.path.join(os.path.dirname(__file__), 'serviceAccountKey.json')
             if not os.path.exists(service_account_path):
-                raise FileNotFoundError("No Firebase credentials found")
+                raise FileNotFoundError(
+                    "No Firebase credentials found; set FIREBASE_SERVICE_ACCOUNT"
+                )
             cred = credentials.Certificate(service_account_path)
             logger.info("✅ Using Firebase credentials from local file")
         

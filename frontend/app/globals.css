@@ -58,6 +58,10 @@ body {
   overflow-x: hidden;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body::before {
   content: '';
   position: fixed;
@@ -232,7 +236,7 @@ h1 {
 }
 
 .btn-primary {
-  background: var(--color-cotton-blue);
+  background: linear-gradient(135deg, #bde8f4 0%, #9dd7ea 100%);
   color: var(--text-main);
   border: 1px solid var(--color-slate-200);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04), inset 0 1px 1px rgba(255, 255, 255, 0.8);
@@ -241,8 +245,19 @@ h1 {
 }
 
 .btn-primary:hover {
-  background: #99cbe0; /* slightly darker cotton blue */
+  background: linear-gradient(135deg, #c9eef8 0%, #8ccde3 100%);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06), inset 0 1px 1px rgba(255, 255, 255, 0.9);
+}
+
+@media (max-width: 640px) {
+  button,
+  .btn {
+    min-height: 44px;
+  }
+
+  .glass-panel {
+    border-radius: 22px;
+  }
 }
 
 .btn-secondary {

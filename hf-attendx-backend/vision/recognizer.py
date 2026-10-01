@@ -1,9 +1,11 @@
+from core.config import settings
 import numpy as np
 from deepface import DeepFace
 from datetime import datetime, timezone, timedelta
 import pandas as pd
 import os
 import cv2
+from vision.face_quality import assess_face_quality
 
 # IST Timezone (UTC+5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
@@ -15,46 +17,48 @@ def get_ist_now():
 # Configuration
 # Pointing to the app root 'data' directory (sibling to vision folder)
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-EMBEDDINGS_DIR = os.path.join(ROOT_DIR, "data/embeddings")
 ATTENDANCE_FILE = os.path.join(ROOT_DIR, "data/attendance.csv")
 
 MODEL_NAME = "ArcFace"
 DETECTOR_BACKEND = "retinaface"
-THRESHOLD = 0.50
+THRESHOLD = settings.FACE_MATCH_THRESHOLD
 
 # Performance: Global embedding cache
-_cached_embeddings = None
-_cache_loaded = False
+_cached_embeddings = {"student": None, "teacher": None}
+_cache_loaded = {"student": False, "teacher": False}
 
-def load_embeddings(force_reload=False):
-    """Load embeddings with caching for performance."""
+def load_embeddings(force_reload=False, role="student"):
+    """Load embeddings with caching for performance based on role (student/teacher)."""
     global _cached_embeddings, _cache_loaded
-    
+
     # Return cached if available and not forcing reload
-    if _cache_loaded and not force_reload:
-        return _cached_embeddings
-    
+    if _cache_loaded[role] and not force_reload:
+        return _cached_embeddings[role]
+
     embeddings = {}
-    if not os.path.exists(EMBEDDINGS_DIR):
-        print(f"Warning: {EMBEDDINGS_DIR} does not exist.")
-        _cached_embeddings = {}
-        _cache_loaded = True
+    target_dir = settings.TEACHER_EMBEDDINGS_DIR if role == "teacher" else settings.EMBEDDINGS_DIR
+
+    if not os.path.exists(target_dir):
+        print(f"Warning: {target_dir} does not exist.")
+        _cached_embeddings[role] = {}
+        _cache_loaded[role] = True
         return {}
     
-    for file in os.listdir(EMBEDDINGS_DIR):
+    for file in os.listdir(target_dir):
         if file.endswith(".npy"):
             name = os.path.splitext(file)[0]
-            path = os.path.join(EMBEDDINGS_DIR, file)
+            path = os.path.join(target_dir, file)
             embeddings[name] = np.load(path)
     
-    _cached_embeddings = embeddings
-    _cache_loaded = True
-    print(f"✅ Loaded {len(embeddings)} embeddings into cache")
+    _cached_embeddings[role] = embeddings
+    _cache_loaded[role] = True
+    print(f"✅ Loaded {len(embeddings)} {role} embeddings into cache")
     return embeddings
 
 def reload_embeddings():
     """Force reload embeddings (call after registration)."""
-    return load_embeddings(force_reload=True)
+    load_embeddings(force_reload=True, role="student")
+    return load_embeddings(force_reload=True, role="teacher")
 
 def find_cosine_distance(source_representation, test_representation):
     """Calculate cosine distance between two vectors."""
@@ -63,13 +67,8 @@ def find_cosine_distance(source_representation, test_representation):
     c = np.sum(np.multiply(test_representation, test_representation))
     return 1 - (a / (np.sqrt(b) * np.sqrt(c)))
 
-def mark_attendance(name, skip_sync=False):
-    """Log attendance to CSV file and Firestore.
-    
-    Args:
-        name: Student name
-        skip_sync: If True, skip bumping sync version (used for fallback calls)
-    """
+def mark_attendance(name, skip_sync=False, recognition_metadata=None):
+    """Atomically persist attendance, keeping the CSV as a best-effort mirror."""
     now = get_ist_now()  # Use IST timezone
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
@@ -80,34 +79,36 @@ def mark_attendance(name, skip_sync=False):
         df.to_csv(ATTENDANCE_FILE, index=False)
     
     try:
-        df = pd.read_csv(ATTENDANCE_FILE)
-    except pd.errors.EmptyDataError:
-        df = pd.DataFrame(columns=["Name", "Date", "Time"])
-        
-    # Check if already marked for today
-    already_marked = False
-    if not df.empty:
-        matches = df[(df["Name"] == name) & (df["Date"] == date_str)]
-        if not matches.empty:
-            already_marked = True
-            
-    if not already_marked:
+        from services.firestore_db import check_attendance_exists, save_attendance_log, bump_sync_version
+
+        # The deterministic Firestore create is the authoritative operation.
+        # The pre-check is only for a useful duplicate message; it is not used
+        # as the uniqueness mechanism.
+        saved = save_attendance_log(
+            name,
+            date_str,
+            time_str,
+            recognition_metadata=recognition_metadata,
+        )
+        if not saved:
+            if check_attendance_exists(name, date_str):
+                return False, "Already marked present"
+            return False, "Attendance could not be saved"
+
+        try:
+            df = pd.read_csv(ATTENDANCE_FILE)
+        except pd.errors.EmptyDataError:
+            df = pd.DataFrame(columns=["Name", "Date", "Time"])
         new_entry = pd.DataFrame({"Name": [name], "Date": [date_str], "Time": [time_str]})
         df = pd.concat([df, new_entry], ignore_index=True)
         df.to_csv(ATTENDANCE_FILE, index=False)
-        
-        # Also save to Firestore for persistence
-        try:
-            from services.firestore_db import save_attendance_log, bump_sync_version
-            save_attendance_log(name, date_str, time_str)
-            if not skip_sync:
-                bump_sync_version("attendance")  # Notify all clients
-        except Exception as e:
-            print(f"Warning: Failed to save to Firestore: {e}")
-        
+
+        if not skip_sync:
+            bump_sync_version("attendance")
         return True, "Marked present"
-    else:
-        return False, "Already marked present"
+    except Exception as e:
+        print(f"Firestore attendance save error: {e}")
+        return False, "Attendance could not be saved"
 
 def mark_attendance_firestore(name):
     """Save attendance directly to Firestore (for use in cloud deployments)."""
@@ -117,24 +118,21 @@ def mark_attendance_firestore(name):
     
     try:
         from services.firestore_db import save_attendance_log, check_attendance_exists, bump_sync_version
-        
-        # Check if already marked today in Firestore (optimized)
-        already_marked = check_attendance_exists(name, date_str)
-        
-        if not already_marked:
-            save_attendance_log(name, date_str, time_str)
-            bump_sync_version("attendance")  # Notify all clients
+
+        saved = save_attendance_log(name, date_str, time_str)
+        if saved:
+            bump_sync_version("attendance")
             return True, "Marked present"
-        else:
+        if check_attendance_exists(name, date_str):
             return False, "Already marked present"
+        return False, "Attendance could not be saved"
     except Exception as e:
         print(f"Firestore error: {e}")
-        # Fallback to local - skip sync since Firestore is down anyway
-        return mark_attendance(name, skip_sync=True)
+        return False, "Attendance could not be saved"
 
-def recognize_face(image_path, save=True):
+def recognize_face(image_path, save=True, role="student"):
     """Run face recognition on a single image path."""
-    known_embeddings = load_embeddings()
+    known_embeddings = load_embeddings(role=role)
     
     try:
         # Detect and represent faces
@@ -142,29 +140,55 @@ def recognize_face(image_path, save=True):
             img_path=image_path,
             model_name=MODEL_NAME,
             detector_backend=DETECTOR_BACKEND,
-            enforce_detection=False
+            enforce_detection=True
         )
         
         results = []
         
         for face_obj in faces:
             embedding = face_obj["embedding"]
+            quality = assess_face_quality(image_path, face_obj)
+
+            if not quality.get("passed"):
+                results.append({
+                    "name": "Unknown",
+                    "distance": None,
+                    "status": "rejected",
+                    "message": quality.get("reason", "Face quality was insufficient"),
+                    "all_matches": [],
+                    "quality": quality,
+                })
+                continue
             
             min_dist = 100
             best_match = "Unknown"
+            valid_matches = []
             
             for name, known_embed in known_embeddings.items():
                 distance = find_cosine_distance(known_embed, embedding)
+                if distance <= THRESHOLD:
+                    valid_matches.append((name, distance))
                 if distance < min_dist:
                     min_dist = distance
                     best_match = name
             
             status = "unknown"
             message = "Face not recognized"
+            all_match_names = [m[0] for m in sorted(valid_matches, key=lambda x: x[1])]
             
             if min_dist <= THRESHOLD:
                 if save:
-                    is_new, msg = mark_attendance(best_match)
+                    recognition_metadata = {
+                        "distance": float(min_dist),
+                        "threshold": THRESHOLD,
+                        "quality": quality,
+                        "model": MODEL_NAME,
+                        "detector": DETECTOR_BACKEND,
+                    }
+                    is_new, msg = mark_attendance(
+                        best_match,
+                        recognition_metadata=recognition_metadata,
+                    )
                     status = "present" if is_new else "marked"
                     message = msg
                 else:
@@ -175,14 +199,18 @@ def recognize_face(image_path, save=True):
                     "name": best_match,
                     "distance": float(min_dist),
                     "status": status,
-                    "message": message
+                    "message": message,
+                    "all_matches": all_match_names,
+                    "quality": quality,
                 })
             else:
                 results.append({
                     "name": "Unknown",
                     "distance": float(min_dist),
                     "status": "unknown",
-                    "message": "Face not recognized"
+                    "message": "Face not recognized",
+                    "all_matches": [],
+                    "quality": quality,
                 })
                 
         return results

@@ -26,7 +26,7 @@ def get_stats():
     return {
         "total_students": total_students,
         "model": "ArcFace",
-        "threshold": 0.50
+        "threshold": settings.FACE_MATCH_THRESHOLD
     }
 
 @router.get("/storage/stats")

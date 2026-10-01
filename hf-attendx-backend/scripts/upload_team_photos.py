@@ -44,15 +44,11 @@ def upload_team_photos():
         blob = bucket.blob(storage_path)
         blob.upload_from_filename(local_path)
         
-        # Make publicly readable
-        blob.make_public()
-        
         logger.info(f"✅ Uploaded: {storage_path}")
-        logger.info(f"   URL: {blob.public_url}")
         
         uploaded.append({
             "name": storage_name,
-            "url": blob.public_url
+            "path": storage_path
         })
     
     return uploaded
@@ -62,8 +58,8 @@ if __name__ == "__main__":
     print("🚀 Uploading team photos to Firebase Storage...")
     results = upload_team_photos()
     
-    print("\n📋 Team Photo URLs:")
+    print("\n📋 Team Photo Storage Paths:")
     for item in results:
-        print(f"  {item['name']}: {item['url']}")
+        print(f"  {item['name']}: {item['path']}")
     
     print(f"\n✅ Uploaded {len(results)} team photos")

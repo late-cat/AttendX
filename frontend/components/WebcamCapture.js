@@ -3,6 +3,7 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { CameraIcon, CheckIcon, RefreshIcon, CloseIcon } from '@/lib/icons';
+import { createBlinkTracker } from '@/lib/edge-blink';
 
 // Adding a simple Flip Camera SVG icon inline
 const FlipCameraIcon = () => (
@@ -13,11 +14,24 @@ const FlipCameraIcon = () => (
     </svg>
 );
 
-export default function WebcamCapture({ onCapture, onClose, locationStatus, locationMessage }) {
+export default function WebcamCapture({ onCapture, onClose, locationStatus, locationMessage, livenessMode = false, livenessAction = 'check in' }) {
     const webcamRef = useRef(null);
     const [imgSrc, setImgSrc] = useState(null);
+    const [queuedPhotos, setQueuedPhotos] = useState([]);
+    const [retakePhotoId, setRetakePhotoId] = useState(null);
+    const nextPhotoIdRef = useRef(1);
+    const [cameraError, setCameraError] = useState('');
+    const [livenessState, setLivenessState] = useState(livenessMode ? 'monitoring' : 'idle');
+    const [trackingState, setTrackingState] = useState({ state: 'align_face', face_box: null, eye_points: [] });
+    const [manualCapturePreview, setManualCapturePreview] = useState(null);
     const [facingMode, setFacingMode] = useState('user'); // 'user' (front) or 'environment' (rear)
     const [devices, setDevices] = useState([]);
+    const blinkTrackerRef = useRef(null);
+    const manualCaptureRef = useRef(null);
+    const submissionStartedRef = useRef(false);
+    const onCaptureRef = useRef(onCapture);
+
+    onCaptureRef.current = onCapture;
 
     const handleDevices = useCallback(
         (mediaDevices) => setDevices(mediaDevices.filter(({ kind }) => kind === 'videoinput')),
@@ -28,37 +42,152 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
         navigator.mediaDevices.enumerateDevices().then(handleDevices);
     }, [handleDevices]);
 
-    const capture = useCallback(() => {
+    const convertFramesToBlobs = useCallback(async (sources) => Promise.all(sources.map(async source => {
+        const res = await fetch(source);
+        return res.blob();
+    })), []);
+
+    const capture = useCallback(async () => {
+        if (!webcamRef.current) return;
+
+        // In teacher mode, manual capture does not submit immediately. It
+        // locks a reference frame and starts the blink-confirmation fallback.
+        if (livenessMode) {
+            const imageSrc = webcamRef.current.getScreenshot();
+            if (!imageSrc) return;
+            if (livenessState === 'tracking_error') {
+                submissionStartedRef.current = true;
+                setLivenessState('submitting');
+                const [blob] = await convertFramesToBlobs([imageSrc]);
+                onCaptureRef.current([blob], { livenessState: 'manual_fallback', blinkDetected: false });
+                return;
+            }
+            manualCaptureRef.current = imageSrc;
+            setManualCapturePreview(imageSrc);
+            setLivenessState('waiting_blink');
+            return;
+        }
+
         const imageSrc = webcamRef.current.getScreenshot();
-        setImgSrc(imageSrc);
-    }, [webcamRef]);
+        if (!imageSrc) return;
+
+        const photoId = nextPhotoIdRef.current++;
+        setQueuedPhotos(previous => {
+            if (retakePhotoId !== null && previous.some(photo => photo.id === retakePhotoId)) {
+                return previous.map(photo => photo.id === retakePhotoId ? { ...photo, src: imageSrc } : photo);
+            }
+            if (previous.length >= 3) return previous;
+            return [...previous, { id: photoId, src: imageSrc }];
+        });
+        setRetakePhotoId(null);
+    }, [livenessMode, retakePhotoId]);
 
     const confirmUpload = async () => {
-        if (!imgSrc) return;
-        // Convert base64 to blob
-        const res = await fetch(imgSrc);
-        const blob = await res.blob();
-        onCapture(blob); // Send back to parent
+        const sources = livenessMode
+            ? (imgSrc ? [imgSrc] : [])
+            : queuedPhotos.map(photo => photo.src);
+        if (sources.length === 0) return;
+        const blobs = await convertFramesToBlobs(sources);
+        onCapture(blobs);
     };
+
+    const removeQueuedPhoto = (id) => {
+        setQueuedPhotos(previous => previous.filter(photo => photo.id !== id));
+        if (retakePhotoId === id) setRetakePhotoId(null);
+    };
+
+    const selectRetake = (id) => {
+        setRetakePhotoId(id);
+        setCameraError('');
+    };
+
+    // Teacher liveness runs entirely on-device. No image is sent to the
+    // backend while the camera is open; only the final post-blink frame is
+    // submitted by the parent flow.
+    useEffect(() => {
+        if (!livenessMode) return undefined;
+
+        let cancelled = false;
+        let timer = null;
+        const start = async () => {
+            try {
+                const video = webcamRef.current?.video;
+                if (!video) {
+                    if (!cancelled) setTimeout(start, 120);
+                    return;
+                }
+                const tracker = createBlinkTracker({ sampleHz: 12 });
+                await tracker.init(video);
+                if (cancelled) {
+                    tracker.close();
+                    return;
+                }
+                blinkTrackerRef.current = tracker;
+                timer = setInterval(async () => {
+                    if (cancelled || submissionStartedRef.current) return;
+                    const result = tracker.detect();
+                    if (!result) return;
+                    setLivenessState(result.state || 'monitoring');
+                    setTrackingState({
+                        ...result,
+                        face_box: result.faceBox || result.face_box,
+                        eye_points: result.eyePositions || result.eye_points || [],
+                    });
+                    if (result.blinkDetected && !submissionStartedRef.current) {
+                        submissionStartedRef.current = true;
+                        setLivenessState('submitting');
+                        const currentFrame = webcamRef.current?.getScreenshot();
+                        if (!currentFrame) return;
+                        const blobs = await convertFramesToBlobs([currentFrame]);
+                        onCaptureRef.current(blobs, { livenessState: 'client_blink', blinkDetected: true });
+                    }
+                }, 80);
+            } catch (error) {
+                if (!cancelled) setLivenessState('tracking_error');
+            }
+        };
+        start();
+        return () => {
+            cancelled = true;
+            if (timer) clearInterval(timer);
+            blinkTrackerRef.current?.close();
+            blinkTrackerRef.current = null;
+        };
+    }, [convertFramesToBlobs, livenessMode]);
 
     const toggleCamera = () => {
-        setFacingMode(prev => prev === 'user' ? { exact: 'environment' } : 'user');
+        setCameraError('');
+        setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
     };
 
+    const livenessMessage = {
+        monitoring: `Blink to automatically ${livenessAction}.`,
+        align_face: 'Please align your face',
+        eyes_not_visible: 'Make sure your eyes are visible',
+        ready_to_blink: 'Blink to verify',
+        waiting_blink: 'Waiting for a natural blink...',
+        blink_detected: 'Blink detected. Verifying identity and location...',
+        submitting: 'Blink detected. Verifying identity and location...',
+        tracking_error: 'Eye tracking unavailable — Capture manually to continue',
+    }[livenessState] || `Blink to automatically ${livenessAction}.`;
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in p-4">
-            <div className="p-6 md:p-8 max-w-4xl w-full relative rounded-[32px] bg-white border border-slate-200 shadow-[0_20px_60px_rgba(0,0,0,0.1)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
+            <div className="relative flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden rounded-none bg-white/95 shadow-[0_20px_60px_rgba(0,0,0,0.1)] backdrop-blur-xl sm:h-[calc(100dvh-2rem)] sm:rounded-[32px] sm:border sm:border-slate-200 sm:p-5">
                 
                 {/* Close button */}
                 <button
                     onClick={onClose}
-                    className="absolute top-6 right-6 w-10 h-10 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all shadow-sm"
+                    aria-label="Close camera"
+                    className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-500 shadow-sm transition-all hover:bg-slate-100 hover:text-slate-700 sm:right-5 sm:top-5"
                 >
                     <CloseIcon />
                 </button>
 
-                <div className="flex flex-col items-center mb-6">
-                    <h2 className="text-2xl font-bold text-slate-800 m-0 mb-2">Capture Live Photo</h2>
+                <div className="flex shrink-0 flex-col items-center gap-2 p-3 pb-2 sm:mb-4 sm:p-0">
+                    <h2 className="m-0 text-xl font-bold text-slate-800 sm:text-2xl">{livenessMode ? 'Live Presence Verification' : 'Capture Live Photo'}</h2>
+
+                    {!livenessMode && <p className="m-0 text-center text-sm font-semibold text-slate-500">Add up to 3 photos</p>}
                     
                     {/* Location Status Indicator */}
                     {locationStatus && (
@@ -75,66 +204,139 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
                     )}
                 </div>
 
-                <div className="rounded-2xl overflow-hidden bg-slate-100 aspect-video mb-6 relative border border-slate-200 shadow-sm w-full">
-                    {imgSrc ? (
+                <div className="relative min-h-0 w-full flex-1 overflow-hidden bg-slate-900 rounded-t-3xl border-t border-slate-200/50 shadow-[0_-10px_40px_rgba(0,0,0,0.15)] sm:mb-4 sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-sm">
+                    {livenessMode && imgSrc ? (
                         <img src={imgSrc} alt="Preview" className="w-full h-full object-cover" />
                     ) : (
-                        <Webcam
-                            audio={false}
-                            ref={webcamRef}
-                            screenshotFormat="image/jpeg"
-                            videoConstraints={{ facingMode, width: 1280, height: 720 }}
-                            className="w-full h-full object-cover"
-                        />
+                        <>
+                            <Webcam
+                                audio={false}
+                                ref={webcamRef}
+                                screenshotFormat="image/jpeg"
+                                screenshotQuality={0.78}
+                                videoConstraints={{ facingMode }}
+                                onUserMedia={() => setCameraError('')}
+                                onUserMediaError={() => {
+                                    setCameraError('This camera is unavailable. Try switching back or check browser permissions.');
+                                    setFacingMode('user');
+                                }}
+                                className="w-full h-full object-cover"
+                            />
+                            {/* Keep the liveness guide, but let classroom captures use the whole preview. */}
+                            <div className="pointer-events-none absolute inset-0">
+                                {livenessMode && <>
+                                    <div className="absolute inset-x-[18%] bottom-[16%] top-[16%] rounded-[32%] border-2 border-dashed border-amber-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.12)]" />
+                                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-slate-900/60 px-3 py-1 text-xs font-semibold text-white">Keep your face inside the guide and blink naturally</div>
+                                </>}
+                                {livenessMode && trackingState.face_box && (
+                                    <>
+                                        <svg 
+                                            viewBox={`0 0 ${trackingState.videoWidth || 1280} ${trackingState.videoHeight || 720}`} 
+                                            preserveAspectRatio="xMidYMid slice" 
+                                            className="absolute inset-0 z-10 h-full w-full pointer-events-none"
+                                        >
+                                            {(() => {
+                                                if (!trackingState.eye_points || trackingState.eye_points.length === 0) return null;
+                                                // Focus specifically on one eye (left eye) like a native camera
+                                                const center = trackingState.eye_points[0];
+                                                
+                                                const cx = center.x * (trackingState.videoWidth || 1280);
+                                                const cy = center.y * (trackingState.videoHeight || 720);
+                                                return (
+                                                    <g className="transition-all duration-75">
+                                                        <circle 
+                                                            cx={cx} 
+                                                            cy={cy} 
+                                                            r="10" 
+                                                            fill="none" 
+                                                            stroke="rgba(255, 255, 255, 0.95)" 
+                                                            strokeWidth="1.5" 
+                                                            strokeDasharray="13.2 2.5" 
+                                                            className="drop-shadow-sm"
+                                                        />
+                                                    </g>
+                                                );
+                                            })()}
+                                        </svg>
+                                        <span 
+                                            className="absolute z-20 whitespace-nowrap rounded-full bg-slate-950/80 px-4 py-2 text-sm font-bold text-cyan-200 shadow-md backdrop-blur-md transition-all duration-150" 
+                                            style={{ 
+                                                left: `${(trackingState.face_box.x + trackingState.face_box.w / 2) * 100}%`, 
+                                                top: `${(trackingState.face_box.y) * 100}%`,
+                                                transform: 'translate(-50%, -150%)'
+                                            }}
+                                        >
+                                            {livenessMessage}
+                                        </span>
+                                    </>
+                                )}
+                                {manualCapturePreview && livenessState === 'waiting_blink' && <img src={manualCapturePreview} alt="Captured reference" className="absolute right-3 top-3 h-16 w-24 rounded-lg border-2 border-amber-300 object-cover shadow-lg" />}
+                            </div>
+                        </>
                     )}
-                </div>
-
-                <div className="flex justify-between items-center gap-4">
-                    {/* Camera Flip Button (Only show if not captured and has multiple cameras) */}
-                    <div className="w-12 h-12 flex-shrink-0">
-                        {!imgSrc && devices.length > 1 && (
+                    {!livenessMode && queuedPhotos.length > 0 && (
+                        <div className="absolute bottom-24 left-3 right-3 flex items-end gap-2" aria-label="Queued classroom photos">
+                            {queuedPhotos.map((photo, index) => (
+                                <div key={photo.id} className="relative h-20 w-20 shrink-0 rounded-xl bg-slate-900/80 p-1 shadow-lg sm:h-24 sm:w-24">
+                                    <button type="button" onClick={() => selectRetake(photo.id)} aria-label={`Retake photo ${index + 1}`} title="Tap to retake" className={`h-full w-full overflow-hidden rounded-lg border-2 ${retakePhotoId === photo.id ? 'border-amber-400 ring-2 ring-amber-300' : 'border-white/80'}`}>
+                                        <img src={photo.src} alt={`Classroom photo ${index + 1}`} className="h-full w-full object-cover" />
+                                    </button>
+                                    <button type="button" onClick={() => removeQueuedPhoto(photo.id)} aria-label={`Remove photo ${index + 1}`} title="Remove photo" className="absolute -right-1 -top-1 flex h-7 w-7 items-center justify-center rounded-full border border-white bg-slate-900 text-lg leading-none text-white shadow-md hover:bg-rose-600">×</button>
+                                </div>
+                            ))}
+                            {retakePhotoId !== null && <span className="rounded-full bg-slate-900/75 px-3 py-1 text-xs font-semibold text-white">Tap Retake Photo to replace</span>}
+                        </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-transparent px-3 pb-3 pt-16 sm:px-5 sm:pb-5">
+                        <div className="mx-auto flex w-full max-w-2xl items-center gap-2 sm:gap-4">
                             <button
                                 onClick={toggleCamera}
-                                title="Flip Camera"
-                                className="w-full h-full rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all shadow-sm"
+                                title="Switch Camera"
+                                aria-label="Switch Camera"
+                                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-white/70 bg-white/20 text-white shadow-[0_4px_16px_rgba(0,0,0,0.5)] backdrop-blur-xl transition-all hover:bg-white/30 hover:border-white active:scale-95"
                             >
                                 <FlipCameraIcon />
                             </button>
-                        )}
+                            <div className="flex min-w-0 flex-1 justify-center gap-2">
+                                {livenessMode ? (
+                                    livenessState === 'tracking_error' ? (
+                                        <button
+                                            onClick={capture}
+                                            disabled={locationStatus === 'verifying'}
+                                            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/50 bg-white px-5 py-3.5 font-bold text-slate-900 shadow-[0_4px_16px_rgba(0,0,0,0.4)] backdrop-blur-md transition-all hover:bg-slate-50 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            <CameraIcon size="md" /> Capture Manually
+                                        </button>
+                                    ) : null
+                                ) : (
+                                    <>
+                                        {(queuedPhotos.length < 3 || retakePhotoId !== null) && (
+                                            <button
+                                                onClick={capture}
+                                                disabled={locationStatus === 'verifying'}
+                                                className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border border-white/50 bg-white px-4 py-3.5 font-bold text-slate-900 shadow-[0_4px_16px_rgba(0,0,0,0.4)] backdrop-blur-md transition-all hover:bg-slate-50 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                            >
+                                                <CameraIcon size="md" /> {retakePhotoId !== null ? 'Retake Photo' : 'Add Photo'}
+                                            </button>
+                                        )}
+                                        {queuedPhotos.length > 0 && (
+                                            <button
+                                                onClick={confirmUpload}
+                                                className="flex min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border border-emerald-400 bg-emerald-500 px-4 py-3.5 font-bold text-white shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all hover:bg-emerald-600 active:scale-[.98]"
+                                            >
+                                                <CheckIcon size="md" /> Process {queuedPhotos.length}
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                            <div className="h-12 w-12 shrink-0" aria-hidden="true" />
+                        </div>
                     </div>
-
-                    <div className="flex justify-center gap-3 flex-1 max-w-sm">
-                        {!imgSrc ? (
-                            <button
-                                onClick={capture}
-                                disabled={locationStatus === 'verifying'}
-                                className={`w-full py-3.5 px-6 rounded-2xl font-bold flex items-center justify-center gap-2.5 transition-all duration-200 ${
-                                    locationStatus === 'verifying' ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed' : 'btn-primary'
-                                }`}
-                            >
-                                <CameraIcon size="md" /> Capture Photo
-                            </button>
-                        ) : (
-                            <>
-                                <button
-                                    onClick={() => setImgSrc(null)}
-                                    className="flex-1 py-3.5 px-5 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all duration-200 btn-secondary"
-                                >
-                                    <RefreshIcon /> Retake
-                                </button>
-                                <button
-                                    onClick={confirmUpload}
-                                    className="flex-1 py-3.5 px-5 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all duration-200 bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-600 shadow-[0_4px_12px_rgba(16,185,129,0.2)] hover:shadow-[0_6px_16px_rgba(16,185,129,0.3)]"
-                                >
-                                    <CheckIcon size="md" /> Process
-                                </button>
-                            </>
-                        )}
-                    </div>
-                    
-                    {/* Placeholder to balance the flip button on the left */}
-                    <div className="w-12 h-12 flex-shrink-0"></div>
                 </div>
+
+                {cameraError && <p className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-center text-sm font-semibold text-rose-700">{cameraError}</p>}
+
             </div>
         </div>
     );

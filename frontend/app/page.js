@@ -11,7 +11,8 @@ import {
   HomeIcon, CameraIcon, CalendarIcon, LogsIcon, UsersIcon, SettingsIcon,
   CheckCircleIcon, MonitorIcon, BellIcon,
   VideoIcon, UploadIcon, DownloadIcon, TrashIcon, FileIcon,
-  CloseIcon, MenuIcon, ConstructionIcon, InfoIcon
+  CloseIcon, MenuIcon, ConstructionIcon, InfoIcon,
+  TeacherIcon, LocationIcon
 } from '@/lib/icons';
 
 // Imported Components
@@ -33,6 +34,8 @@ const Icons = {
   calendar: <CalendarIcon size="sm" />,
   logs: <LogsIcon />,
   users: <UsersIcon size="sm" />,
+  teacher: <TeacherIcon size="sm" />,
+  location: <LocationIcon size="sm" />,
   settings: <SettingsIcon />,
   info: <InfoIcon />,
   // Stat card icons
@@ -57,8 +60,8 @@ const TABS = [
   { id: 'today', label: "Today's Attendance", icon: Icons.calendar },
   { id: 'logs', label: 'Attendance Logs', icon: Icons.logs },
   { id: 'students', label: 'Student Mgmt', icon: Icons.users },
-  { id: 'teachers', label: 'Teacher Mgmt', icon: Icons.users },
-  { id: 'teacher_checkin', label: 'Teacher Check-in', icon: Icons.users },
+  { id: 'teachers', label: 'Teacher Mgmt', icon: Icons.teacher },
+  { id: 'teacher_checkin', label: 'Teacher Check-in', icon: Icons.location },
   { id: 'settings', label: 'Settings', icon: Icons.settings },
   { id: 'about', label: 'About', icon: Icons.info },
 ];
@@ -324,15 +327,21 @@ export default function Home() {
 
   // --- HANDLERS ---
   const handleFileUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(event.target.files || [])
+      .filter(file => file.type.startsWith('image/'))
+      .slice(0, 3);
+    if (files.length === 0) return;
 
-    // Show preview
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
-
-    processImage(file);
+    const previews = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    })));
+    setImagePreview(previews);
+    processImage(files);
+    // Permit selecting the same files again after a retake.
+    event.target.value = '';
   };
 
   const handleTeacherActionClick = (action) => {
@@ -360,25 +369,36 @@ export default function Home() {
     }
   };
 
-  const handleWebcamCapture = (blob) => {
+  const handleWebcamCapture = (blob, livenessMetadata = null) => {
     setShowWebcam(false);
-    const file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
-
-    // Show preview
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result);
-    reader.readAsDataURL(file);
+    const blobs = Array.isArray(blob) ? blob : [blob];
+    const files = blobs.map((item, index) => new File([item], `classroom-${index + 1}.jpg`, { type: "image/jpeg" }));
 
     if (captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout') {
-       processTeacherCheckIn(blob, captureMode);
+       // Teacher liveness submits a frame sequence, but retains the existing
+       // single reference preview behavior.
+       const previewFile = files[files.length - 1];
+       const reader = new FileReader();
+       reader.onloadend = () => setImagePreview([reader.result]);
+       reader.readAsDataURL(previewFile);
+       processTeacherCheckIn(blob, captureMode, livenessMetadata);
     } else {
-       processImage(file);
+       // Show all queued classroom captures in the station preview.
+       Promise.all(files.map(file => new Promise((resolve, reject) => {
+         const reader = new FileReader();
+         reader.onloadend = () => resolve(reader.result);
+         reader.onerror = reject;
+         reader.readAsDataURL(file);
+       }))).then(setImagePreview).catch(() => setImagePreview(null));
+       processImage(files);
     }
   };
 
-  const processImage = async (file) => {
+  const processImage = async (inputFiles) => {
+    const files = (Array.isArray(inputFiles) ? inputFiles : [inputFiles]).filter(Boolean).slice(0, 3);
+    if (files.length === 0) return;
     setIsUploading(true);
-    setUploadStatus("Analyzing...");
+    setUploadStatus(`Analyzing ${files.length} photo${files.length === 1 ? '' : 's'}...`);
     setScanResult(null);
 
     try {
@@ -388,42 +408,56 @@ export default function Home() {
          return;
       }
         
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('save', 'false');
+        const formData = new FormData();
+        files.forEach(file => formData.append(files.length === 1 ? 'file' : 'files', file));
+        formData.append('save', 'false');
+        const endpoint = files.length === 1 ? '/recognize' : '/recognize/batch';
+        const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) throw new Error("API Error");
+        const data = await res.json();
+        const details = data.details || [];
 
-      const res = await fetch(`${API_BASE_URL}/recognize`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!res.ok) throw new Error("API Error");
-      const data = await res.json();
-
-      if (data.details && data.details.length > 0) {
-        const detectedFaces = data.details.filter(d => ['detected', 'present', 'marked', 'unknown'].includes(d.status));
+       if (details.length > 0) {
+        const detectedFaces = details.filter(d => ['detected', 'present', 'marked', 'unknown', 'rejected'].includes(d.status));
         const classStudents = allStudents.filter(s => s.class_name == sessionClass && s.section == sessionSection);
         const classStudentNames = classStudents.map(s => s.name);
         
-        const allStudentNames = allStudents.map(s => s.name);
-        const validDetectedFaces = detectedFaces.filter(f => allStudentNames.includes(f.name)); 
+        // Only students belonging to the active class count as recognized for
+        // this verification pass. Unknown, rejected, and cross-class faces do
+        // not contribute to the final attendance list.
+        const validDetectedFaces = detectedFaces.filter(f =>
+          ['detected', 'present', 'marked'].includes(f.status) && classStudentNames.includes(f.name)
+        );
+        const uniqueValidFaces = validDetectedFaces.filter((face, index, faces) =>
+          faces.findIndex(candidate => candidate.name === face.name) === index
+        );
+        const recognizedNames = [...new Set(uniqueValidFaces.map(f => f.name))];
+        const qualityRejectedCount = detectedFaces.filter(f => f.status === 'rejected').length;
         
         setScanResult({
-          status: validDetectedFaces.length > 0 ? 'success' : 'error',
-          faces: data.details,
-          validFaces: validDetectedFaces
+          status: uniqueValidFaces.length > 0 ? 'success' : 'error',
+          faces: details,
+          validFaces: uniqueValidFaces,
+          detectedCount: detectedFaces.length,
+          recognizedCount: recognizedNames.length,
+          classTotal: classStudents.length,
+          unrecognizedCount: Math.max(0, detectedFaces.length - validDetectedFaces.length),
+          qualityRejectedCount,
         });
         
         if (detectedFaces.length > 0 || classStudents.length > 0) {
-           const validDetectedNames = validDetectedFaces.map(f => f.name);
+            const validDetectedNames = recognizedNames;
            const missing = classStudents.filter(s => !validDetectedNames.includes(s.name));
            
            setMissingStudents(missing);
            setReviewMode(true);
         }
-      } else {
-        setScanResult({ status: 'error', faces: [{ name: 'Unknown', message: data.message || 'No face detected' }] });
-      }
+       } else {
+         setScanResult({ status: 'error', faces: [{ name: 'Unknown', message: 'No face detected in the selected photos' }] });
+       }
     } catch (e) {
       setScanResult({ status: 'error', faces: [{ name: 'Connection Error', message: "Check backend server" }] });
     } finally {
@@ -437,10 +471,15 @@ export default function Home() {
      try {
         const detectedFaces = (scanResult.validFaces || []).map(f => f.name);
         
-        const records = [
-           ...detectedFaces.map(name => ({ name, source: "AI_Camera" })),
-           ...manualOverrides.map(name => ({ name, source: "Manual_Override" }))
-        ];
+         const records = [
+            ...(scanResult.validFaces || []).map(face => ({
+              name: face.name,
+              source: "AI_Camera",
+              distance: face.distance,
+              quality: face.quality,
+            })),
+            ...manualOverrides.map(name => ({ name, source: "Manual_Override" }))
+         ];
         
         if (records.length === 0) {
            alert("No students to mark present.");
@@ -588,14 +627,14 @@ export default function Home() {
 
 
 
-  const processTeacherCheckIn = (blob, actionType) => {
+  const processTeacherCheckIn = (blobs, actionType, livenessMetadata = null) => {
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser.");
       return;
     }
     
+    const finalBlob = Array.isArray(blobs) ? blobs[blobs.length - 1] : blobs;
     const reader = new FileReader();
-    reader.readAsDataURL(blob); 
     reader.onloadend = () => {
         const base64data = reader.result;
         
@@ -615,7 +654,9 @@ export default function Home() {
                  body: JSON.stringify({
                     lat: position.coords.latitude,
                     lng: position.coords.longitude,
-                    image: base64data
+                     image: base64data,
+                     blink_detected: livenessMetadata?.blinkDetected === true,
+                     liveness_state: livenessMetadata?.livenessState || 'manual_fallback'
                  })
               });
               
@@ -640,7 +681,12 @@ export default function Home() {
            timeout: 5000,
            maximumAge: 0
         });
-    }
+    };
+    reader.onerror = () => {
+      alert("Could not prepare liveness frames.");
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(finalBlob);
   };
 
   if (loading || !user) return null;
@@ -682,11 +728,36 @@ export default function Home() {
         );
 
       case 'live':
-        if (reviewMode) {
+         if (reviewMode) {
            return (
               <div className="glass-panel p-8 text-center animate-in max-w-4xl mx-auto">
                  <h2 className="m-0 mb-6 text-2xl font-bold">Review Attendance</h2>
                  <p className="text-secondary mb-8">Please verify the detected students and manually add any missed students.</p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 text-left">
+                     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Faces detected</p>
+                        <p className="mt-1 text-2xl font-extrabold text-slate-800">{scanResult.detectedCount ?? scanResult.faces?.length ?? 0}</p>
+                     </div>
+                     <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">Recognized</p>
+                        <p className="mt-1 text-2xl font-extrabold text-emerald-700">{scanResult.recognizedCount ?? scanResult.validFaces?.length ?? 0} <span className="text-sm font-bold text-emerald-600">/ {scanResult.classTotal ?? 0}</span></p>
+                     </div>
+                     <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-amber-600">Needs review</p>
+                        <p className="mt-1 text-2xl font-extrabold text-amber-700">{scanResult.unrecognizedCount ?? 0}</p>
+                     </div>
+                     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Quality rejected</p>
+                        <p className="mt-1 text-2xl font-extrabold text-slate-700">{scanResult.qualityRejectedCount ?? 0}</p>
+                     </div>
+                  </div>
+
+                  <div className={`mb-8 rounded-2xl border px-4 py-3 text-sm font-semibold ${scanResult.recognizedCount > 0 ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-rose-100 bg-rose-50 text-rose-700'}`}>
+                     {scanResult.recognizedCount > 0
+                       ? `Recognized ${scanResult.recognizedCount} of ${scanResult.classTotal} students in this class. Review the list below before saving.`
+                       : 'No students from this class were confidently recognized. Retake the photo or use manual attendance.'}
+                  </div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
                     {/* Detected Students Column */}
@@ -755,14 +826,14 @@ export default function Home() {
                  
 
                  
-                 <div className="mt-8 flex justify-end gap-4">
-                    <button 
-                       onClick={() => { setReviewMode(false); setScanResult(null); setImagePreview(null); }}
-                       className="btn btn-secondary px-6"
-                       disabled={isUploading}
-                    >
-                       Cancel
-                    </button>
+                  <div className="mt-8 flex justify-end gap-4">
+                     <button
+                        onClick={() => { setReviewMode(false); setScanResult(null); setImagePreview(null); }}
+                        className="btn btn-secondary px-6"
+                        disabled={isUploading}
+                     >
+                        Retake Photo
+                     </button>
                     <button 
                        onClick={handleFinalizeAttendance}
                        className="btn btn-primary px-8"
@@ -841,21 +912,24 @@ export default function Home() {
                 {Icons.videoLg} Start Camera
               </button>
               <span className="text-xs text-secondary text-center">- OR -</span>
-              <label className="btn btn-secondary justify-center cursor-pointer flex items-center gap-2">
-                {Icons.uploadLg} Upload Photo
-                <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" />
-              </label>
-            </div>
+               <label className="btn btn-secondary justify-center cursor-pointer flex items-center gap-2">
+                 {Icons.uploadLg} Upload up to 3 Photos
+                 <input type="file" className="hidden" onChange={handleFileUpload} accept="image/*" multiple />
+               </label>
+             </div>
 
-            {imagePreview && (
-              <div className="mt-4 max-w-xs mx-auto">
-                <img
-                  src={imagePreview}
-                  alt="Preview"
-                  className="w-full max-h-48 object-cover rounded-lg border border-glass-border"
-                />
-              </div>
-            )}
+             {imagePreview && (
+               <div className="mx-auto mt-4 grid max-w-lg grid-cols-3 gap-2">
+                 {(Array.isArray(imagePreview) ? imagePreview : [imagePreview]).map((preview, index) => (
+                   <img
+                     key={index}
+                     src={preview}
+                     alt={`Selected classroom photo ${index + 1}`}
+                     className="aspect-[4/3] w-full rounded-lg border border-glass-border object-cover"
+                   />
+                 ))}
+               </div>
+             )}
 
             {isUploading && (
               <div className="mt-8 p-6 bg-blue-500/10 rounded-xl border border-blue-500/20 animate-pulse">
@@ -1101,7 +1175,7 @@ export default function Home() {
     <main
       className="flex min-h-screen font-sans"
     >
-      {showWebcam && <WebcamCapture onCapture={handleWebcamCapture} onClose={() => setShowWebcam(false)} locationStatus={(captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout') ? locationStatus : null} locationMessage={locationMessage} />}
+      {showWebcam && <WebcamCapture onCapture={handleWebcamCapture} onClose={() => setShowWebcam(false)} livenessMode={captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout'} livenessAction={captureMode === 'teacher_checkout' ? 'check out' : 'check in'} locationStatus={(captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout') ? locationStatus : null} locationMessage={locationMessage} />}
 
       {/* MOBILE HEADER - Glass Style */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-20 p-4 flex justify-between items-center bg-[var(--color-cotton-lavender)] border-b border-slate-300/30 shadow-sm">
@@ -1180,13 +1254,13 @@ export default function Home() {
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <div className="flex-1 md:ml-64 p-4 md:p-8 overflow-y-auto pt-24 md:pt-8">
+      <div className="relative flex-1 overflow-y-auto px-3 pb-8 pt-24 sm:px-5 md:ml-64 md:px-8 md:pt-8 xl:px-10">
         {/* Top Header - Welcome only on Overview */}
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 md:mb-8 gap-2">
+        <header className="mb-4 flex flex-col items-start gap-1 md:mb-8 md:flex-row md:items-end md:justify-between px-1">
           <div>
-            <h2 className="text-lg md:text-xl font-semibold m-0">{TABS.find(t => t.id === activeTab)?.label}</h2>
+            <h2 className="text-2xl font-bold text-slate-700 m-0">{TABS.find(t => t.id === activeTab)?.label}</h2>
             {activeTab === 'overview' && (
-              <p className="text-xs md:text-sm text-secondary">Welcome back, Administrator.</p>
+              <p className="text-sm md:text-base font-medium text-slate-500 mt-1">Welcome back, Administrator.</p>
             )}
           </div>
           {/* Sync Status Banner - Only on Overview where aggregated data matters */}

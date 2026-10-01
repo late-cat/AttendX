@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from deepface import DeepFace
+from vision.face_quality import assess_face_quality
 
 # Configuration
 MODEL_NAME = "ArcFace"
@@ -45,8 +46,13 @@ def generate_embeddings_for_person(person_name, images_dir, embeddings_dir):
                 multi_face_files.append(image_file)
             else:
                 # Single face - use it
-                embedding = embedding_objs[0]["embedding"]
-                person_embeddings.append(embedding)
+                face_obj = embedding_objs[0]
+                quality = assess_face_quality(image_path, face_obj)
+                if not quality.get("passed"):
+                    skipped_files.append(f"{image_file} ({quality.get('reason', 'poor quality')})")
+                else:
+                    embedding = face_obj["embedding"]
+                    person_embeddings.append(embedding)
                 
         except Exception as e:
             print(f"Warning: Could not process {image_file}. Error: {e}")
@@ -77,4 +83,3 @@ def generate_embeddings_for_person(person_name, images_dir, embeddings_dir):
         return True, msg
     else:
         return False, "No valid faces found in any uploaded images. Please upload clear face photos."
-

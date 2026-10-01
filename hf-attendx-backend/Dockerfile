@@ -34,6 +34,7 @@ EXPOSE 7860
 
 # Set environment variable for port
 ENV PORT=7860
+ENV APP_ENV=production
 
 # Run the application
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "7860"]

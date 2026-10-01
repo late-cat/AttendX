@@ -64,6 +64,26 @@ export const SettingsIcon = () => (
     </svg>
 );
 
+export const TeacherIcon = ({ size = 'sm' }) => {
+    const sizes = { sm: 'w-[17px] h-[17px]', lg: 'w-[25px] h-[25px]' };
+    return (
+        <svg viewBox="0 0 24 24" className={`${sizes[size]} stroke-current fill-none`} strokeWidth="1.5">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+            <path d="M6 12v5c3 3 9 3 12 0v-5" />
+        </svg>
+    );
+};
+
+export const LocationIcon = ({ size = 'sm' }) => {
+    const sizes = { sm: 'w-[17px] h-[17px]', lg: 'w-[25px] h-[25px]' };
+    return (
+        <svg viewBox="0 0 24 24" className={`${sizes[size]} stroke-current fill-none`} strokeWidth="1.5">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+            <circle cx="12" cy="10" r="3" />
+        </svg>
+    );
+};
+
 // ============================================
 // STAT CARD ICONS (25px, white stroke)
 // ============================================

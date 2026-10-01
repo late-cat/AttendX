@@ -1,5 +1,6 @@
 # Secrets - NEVER commit!
-serviceAccountKey.json
+config/serviceAccountKey.json
+**/serviceAccountKey.json
 *.env
 .env*
 
@@ -19,3 +20,8 @@ data/attendance.csv
 # Temp
 temp_uploads/*
 !temp_uploads/.gitkeep
+
+# Teacher Data
+data/teacher_embeddings/
+data/teacher_faces/
+data/team_face/
