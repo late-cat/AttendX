@@ -856,7 +856,7 @@ export default function Home() {
             </div>
             <p className="text-secondary mb-8">Setup the session and take a photo to mark attendance.</p>
             
-            <div className="grid grid-cols-3 gap-4 mb-8 text-left max-w-md mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 text-left max-w-md mx-auto">
                <div className="relative">
                   <label className="block text-sm font-bold mb-2 text-slate-700">Class</label>
                   <select
