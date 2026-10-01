@@ -10,9 +10,9 @@ const DEFAULTS = {
     wasmPath: '/blink/wasm',
     modelPath: '/blink/models/face_landmarker.task',
     sampleHz: 12,
-    openThreshold: 0.21,
-    closedThreshold: 0.16,
-    minClosedMs: 55,
+    openThreshold: 0.19,
+    closedThreshold: 0.165,
+    minClosedMs: 30,
     maxClosedMs: 700,
     minFaceWidth: 0.08,
 };
@@ -141,7 +141,7 @@ export function createBlinkTracker(options = {}) {
             const taskOptions = {
                 baseOptions: {
                     modelAssetPath: config.modelPath,
-                    delegate: lowSpec ? 'CPU' : 'GPU',
+                    delegate: 'GPU',
                 },
                 runningMode: 'VIDEO',
                 numFaces: 1,
@@ -152,10 +152,8 @@ export function createBlinkTracker(options = {}) {
             try {
                 landmarker = await FaceLandmarker.createFromOptions(fileset, taskOptions);
             } catch (error) {
-                // WebGL can be unavailable even on devices that are not
-                // obviously low-spec. Retry once on CPU rather than failing
-                // the camera flow altogether.
-                if (lowSpec) throw error;
+                // WebGL can be unavailable or buggy on some mobile browsers. 
+                // Always gracefully fall back to CPU if GPU fails.
                 landmarker = await FaceLandmarker.createFromOptions(fileset, {
                     ...taskOptions,
                     baseOptions: { ...taskOptions.baseOptions, delegate: 'CPU' },
