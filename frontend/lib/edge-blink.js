@@ -1,10 +1,3 @@
-/*
- * Small, browser-only blink tracker for a single HTMLVideoElement.
- *
- * MediaPipe is initialized once from the self-hosted files under /blink. No
- * request is made while detect() is sampling a frame. This is a coaching and
- * presence signal, not spoof-proof liveness or identity verification.
- */
 
 const DEFAULTS = {
     wasmPath: '/blink/wasm',
@@ -17,8 +10,6 @@ const DEFAULTS = {
     minFaceWidth: 0.08,
 };
 
-// MediaPipe Face Mesh landmark indices. The points are ordered around each eye
-// so EAR is stable even when the camera mirrors the displayed video.
 const LEFT_EYE = [362, 385, 387, 263, 373, 380];
 const RIGHT_EYE = [33, 160, 158, 133, 153, 144];
 
@@ -35,8 +26,6 @@ const isBenignMediaPipeLog = (args) => {
         /info:\s*created/i.test(message);
 };
 
-// The WASM/TFLite bridge sometimes writes informational startup lines through
-// console.error/console.warn. Next dev treats those as runtime failures.
 const quiet = (original) => (...args) => {
     if (!isBenignMediaPipeLog(args)) original(...args);
 };
@@ -52,9 +41,6 @@ function eyeAspectRatio(landmarks, indices, width = 1, height = 1) {
     const points = indices.map((index) => landmarks[index]).filter(Boolean);
     if (points.length !== 6) return null;
     
-    // Scale normalized coordinates by video dimensions to get true pixel distance.
-    // This is critical for mobile devices where the video aspect ratio (e.g. 9:16)
-    // heavily skews normalized geometric distances.
     const dist = (a, b) => Math.hypot((a.x - b.x) * width, (a.y - b.y) * height);
     
     return (dist(points[1], points[5]) + dist(points[2], points[4])) /
@@ -92,19 +78,10 @@ function emptyResult(state = 'tracking_error', error = null) {
         videoWidth: 1280,
         videoHeight: 720,
         error,
-        // Detection is deliberately not presented as spoof-proof liveness.
         spoofProof: false,
     };
 }
 
-/**
- * Create a tracker. Call `await tracker.init(video)` before `detect()`.
- *
- * @param {object} [options]
- * @param {number} [options.sampleHz=12] Target sampling rate (10-15 is ideal).
- * @param {(result: object) => void} [options.onResult] Optional per-detection callback.
- * @returns {{init(video: HTMLVideoElement): Promise<object>, detect(now?: number): object|null, close(): void}}
- */
 export function createBlinkTracker(options = {}) {
     const config = { ...DEFAULTS, ...options };
     const lowSpec = options.lowSpec ?? (
@@ -121,8 +98,6 @@ export function createBlinkTracker(options = {}) {
     let closed = false;
     let lastTimestamp = -Infinity;
     let lastResult = emptyResult('align_face');
-    // A blink must begin after an observed open state; this prevents a tracker
-    // that starts while the subject's eyes are closed from false-triggering.
     let blinkPhase = 'unknown';
     let closedAt = 0;
 
@@ -158,8 +133,6 @@ export function createBlinkTracker(options = {}) {
             try {
                 landmarker = await FaceLandmarker.createFromOptions(fileset, taskOptions);
             } catch (error) {
-                // WebGL can be unavailable or buggy on some mobile browsers. 
-                // Always gracefully fall back to CPU if GPU fails.
                 landmarker = await FaceLandmarker.createFromOptions(fileset, {
                     ...taskOptions,
                     baseOptions: { ...taskOptions.baseOptions, delegate: 'CPU' },
@@ -259,7 +232,6 @@ export function createBlinkTracker(options = {}) {
             try {
                 landmarker.close();
             } catch (e) {
-                // Ignore cleanup errors
             }
             landmarker = null;
         }
@@ -272,6 +244,4 @@ export function createBlinkTracker(options = {}) {
 
 export default createBlinkTracker;
 
-// Short alias for integrations that prefer a create/init/detect/close naming
-// convention while keeping the descriptive export available.
 export const create = createBlinkTracker;

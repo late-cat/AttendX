@@ -13,7 +13,6 @@ from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
-# IST Timezone (UTC+5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def get_ist_now():
@@ -30,9 +29,6 @@ def initialize_firebase():
         return _bucket
     
     try:
-        # Production deployments must provide the credential through the
-        # environment.  The checked-out local key is only a development
-        # convenience and must never be used as a production fallback.
         service_account_json = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
         runtime_environment = os.environ.get(
             "APP_ENV", os.environ.get("ENVIRONMENT", "local")
@@ -51,7 +47,6 @@ def initialize_firebase():
                     "FIREBASE_SERVICE_ACCOUNT is required in production"
                 )
 
-            # Local development fallback only.
             service_account_path = os.path.join(os.path.dirname(__file__), 'serviceAccountKey.json')
             if not os.path.exists(service_account_path):
                 raise FileNotFoundError(

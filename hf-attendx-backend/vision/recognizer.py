@@ -7,15 +7,12 @@ import os
 import cv2
 from vision.face_quality import assess_face_quality
 
-# IST Timezone (UTC+5:30)
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def get_ist_now():
     """Get current datetime in IST timezone."""
     return datetime.now(IST)
 
-# Configuration
-# Pointing to the app root 'data' directory (sibling to vision folder)
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 ATTENDANCE_FILE = os.path.join(ROOT_DIR, "data/attendance.csv")
 
@@ -23,7 +20,6 @@ MODEL_NAME = "ArcFace"
 DETECTOR_BACKEND = "retinaface"
 THRESHOLD = settings.FACE_MATCH_THRESHOLD
 
-# Performance: Global embedding cache
 _cached_embeddings = {"student": None, "teacher": None}
 _cache_loaded = {"student": False, "teacher": False}
 
@@ -31,7 +27,6 @@ def load_embeddings(force_reload=False, role="student"):
     """Load embeddings with caching for performance based on role (student/teacher)."""
     global _cached_embeddings, _cache_loaded
 
-    # Return cached if available and not forcing reload
     if _cache_loaded[role] and not force_reload:
         return _cached_embeddings[role]
 
@@ -73,7 +68,6 @@ def mark_attendance(name, skip_sync=False, recognition_metadata=None):
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
     
-    # check if file exists, if not create it
     if not os.path.exists(ATTENDANCE_FILE):
         df = pd.DataFrame(columns=["Name", "Date", "Time"])
         df.to_csv(ATTENDANCE_FILE, index=False)
@@ -81,9 +75,6 @@ def mark_attendance(name, skip_sync=False, recognition_metadata=None):
     try:
         from services.firestore_db import check_attendance_exists, save_attendance_log, bump_sync_version
 
-        # The deterministic Firestore create is the authoritative operation.
-        # The pre-check is only for a useful duplicate message; it is not used
-        # as the uniqueness mechanism.
         saved = save_attendance_log(
             name,
             date_str,
@@ -135,7 +126,6 @@ def recognize_face(image_path, save=True, role="student"):
     known_embeddings = load_embeddings(role=role)
     
     try:
-        # Detect and represent faces
         faces = DeepFace.represent(
             img_path=image_path,
             model_name=MODEL_NAME,

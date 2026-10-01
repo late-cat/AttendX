@@ -11,7 +11,6 @@ export default function AboutTab() {
     const [contributors, setContributors] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Fetch registered students as contributors
     useEffect(() => {
         const fetchContributors = async () => {
             try {
@@ -31,17 +30,16 @@ export default function AboutTab() {
 
     return (
         <div className="space-y-6 animate-in pb-8">
-            {/* Architecture + Tech Superiority */}
+
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <h2 className="font-[family-name:var(--font-great-vibes)] text-4xl mb-2 bg-gradient-to-r from-violet-600 via-cyan-600 to-emerald-600 bg-clip-text text-transparent drop-shadow-sm">
                     Built Different
                 </h2>
                 <p className="text-slate-400 text-sm mb-6 tracking-widest italic font-medium">the technology behind the magic ✨</p>
 
-                {/* Flowchart */}
                 <div className="relative py-4">
                     <div className="flex items-center justify-between gap-2">
-                        {/* Camera Input */}
+
                         <div className="flex flex-col items-center gap-2">
                             <div className="w-14 h-14 rounded-xl bg-violet-50/50 border border-violet-200/50 flex items-center justify-center shadow-[inset_0_2px_5px_rgba(139,92,246,0.15),0_1px_1px_rgba(255,255,255,1)]">
                                 <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-violet-600 fill-none drop-shadow-sm" strokeWidth="2">
@@ -56,7 +54,6 @@ export default function AboutTab() {
                             <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rotate-45 border-t-2 border-r-2 border-cyan-400" />
                         </div>
 
-                        {/* Face Detection */}
                         <div className="flex flex-col items-center gap-2">
                             <div className="w-14 h-14 rounded-xl bg-cyan-50/50 border border-cyan-200/50 flex items-center justify-center shadow-[inset_0_2px_5px_rgba(6,182,212,0.15),0_1px_1px_rgba(255,255,255,1)]">
                                 <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-cyan-600 fill-none drop-shadow-sm" strokeWidth="2">
@@ -73,7 +70,6 @@ export default function AboutTab() {
                             <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rotate-45 border-t-2 border-r-2 border-amber-400" />
                         </div>
 
-                        {/* ArcFace Model */}
                         <div className="flex flex-col items-center gap-2">
                             <div className="w-14 h-14 rounded-xl bg-amber-50/50 border border-amber-200/50 flex items-center justify-center shadow-[inset_0_2px_5px_rgba(245,158,11,0.15),0_1px_1px_rgba(255,255,255,1)]">
                                 <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-amber-600 fill-none drop-shadow-sm" strokeWidth="2">
@@ -89,7 +85,6 @@ export default function AboutTab() {
                             <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rotate-45 border-t-2 border-r-2 border-emerald-400" />
                         </div>
 
-                        {/* Attendance Logged */}
                         <div className="flex flex-col items-center gap-2">
                             <div className="w-14 h-14 rounded-xl bg-emerald-50/50 border border-emerald-200/50 flex items-center justify-center shadow-[inset_0_2px_5px_rgba(16,185,129,0.15),0_1px_1px_rgba(255,255,255,1)]">
                                 <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-emerald-600 fill-none drop-shadow-sm" strokeWidth="2.5">
@@ -101,14 +96,12 @@ export default function AboutTab() {
                     </div>
                 </div>
 
-                {/* Superiority Tagline */}
                 <div className="mt-4 p-5 bg-slate-50 rounded-xl border border-slate-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_1px_rgba(255,255,255,1)]">
                     <p className="text-[13px] text-slate-600 text-center leading-relaxed tracking-wide">
                         Powered by <span className="font-semibold text-amber-600">state-of-the-art ArcFace</span> neural networks, <span className="font-semibold text-orange-600">industry-grade Firebase</span> infrastructure & <span className="font-semibold text-cyan-600">sub-second</span> processing - AttendX doesn't just take attendance, it <span className="bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent font-bold">redefines</span> it.
                     </p>
                 </div>
 
-                {/* Tech Stack Pills */}
                 <div className="flex flex-wrap gap-2 mt-6">
                     {TECH_STACK.map((tech, i) => (
                         <div
@@ -122,7 +115,6 @@ export default function AboutTab() {
                 </div>
             </div>
 
-            {/* Key Features with Icons */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-white border border-slate-200 shadow-sm p-5 text-center rounded-2xl">
                     <div className="flex justify-center mb-4">
@@ -158,7 +150,6 @@ export default function AboutTab() {
                 </div>
             </div>
 
-            {/* Team */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <h2 className="text-lg font-bold mb-4 flex items-center gap-2 tracking-tight">
                     <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current text-slate-700 fill-none" strokeWidth="1.5">
@@ -190,7 +181,6 @@ export default function AboutTab() {
                 </div>
             </div>
 
-            {/* Contributors with Thank You Note */}
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                 <h2 className="text-lg font-bold mb-3 flex items-center gap-2 tracking-tight">
                     <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-pink-500 fill-pink-500/20" strokeWidth="1.5">
@@ -200,7 +190,6 @@ export default function AboutTab() {
                     <span className="ml-auto text-[10px] text-slate-400 font-bold uppercase tracking-widest">{contributors.filter(s => !TEAM_NAMES.includes(s.name?.toLowerCase())).length} people</span>
                 </h2>
 
-                {/* Thank You Note */}
                 <div className="mb-4 p-5 bg-slate-50 rounded-xl border border-slate-200 shadow-[inset_0_2px_4px_rgba(0,0,0,0.03),0_1px_1px_rgba(255,255,255,1)]">
                     <p className="text-[13px] text-slate-600 leading-[1.8] tracking-wide font-medium">
                         <span className="font-bold text-pink-500 text-sm">This project breathes because of you.</span>
@@ -237,7 +226,6 @@ export default function AboutTab() {
                 )}
             </div>
 
-            {/* Footer */}
             <div className="text-center space-y-1 pt-4 pb-4">
                 <p className="text-[11px] text-slate-400 tracking-widest uppercase font-bold">Built for Hackathon 2026</p>
                 <p className="text-[10px] text-slate-400/60 font-semibold tracking-wide">© Team AttendX</p>

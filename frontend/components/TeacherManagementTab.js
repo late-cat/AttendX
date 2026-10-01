@@ -117,7 +117,7 @@ export default function TeacherManagementTab({ onDataChange }) {
 
     return (
         <div className="flex flex-col gap-8 animate-in">
-            {/* Register New Teacher */}
+
             <div className="glass-panel p-8 max-w-2xl mx-auto w-full">
                 <div className="flex items-center gap-3 mb-2">
                     <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-700 shadow-sm">
@@ -183,7 +183,6 @@ export default function TeacherManagementTab({ onDataChange }) {
                 </form>
             </div>
 
-            {/* Registered Teachers List */}
             <div className="glass-panel p-8 max-w-2xl mx-auto w-full">
                 <div className="flex justify-between items-center mb-6">
                     <div className="flex items-center gap-3">

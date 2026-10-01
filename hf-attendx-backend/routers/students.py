@@ -57,7 +57,6 @@ async def recognize_api(request: Request, file: UploadFile = File(...), save: st
             
         results = recognize_face(temp_path, save=should_save)
         
-        # Cleanup
         if os.path.exists(temp_path): os.remove(temp_path)
         
         status = "unknown"
@@ -167,8 +166,6 @@ async def recognize_batch_api(
                     }
                 )
             except Exception as exc:
-                # Keep the other classroom images useful if one image cannot
-                # be decoded or the recognition backend fails for that image.
                 logger.exception("Recognition failed for classroom image %s", filename)
                 image_diagnostics.append(
                     {
@@ -194,9 +191,6 @@ async def recognize_batch_api(
     )
     error_count = len(image_diagnostics) - processed_count
 
-    # Include both the snake_case aggregate fields and the camelCase fields
-    # already used by the review UI, so the batch response can be consumed
-    # without changing the single-photo response contract.
     return {
         "status": status,
         "message": (
@@ -252,20 +246,17 @@ async def register_student(
     staged_embedding_path = os.path.join(staging_embeddings_dir, f"{name}.npy")
 
     try:
-        # Save images
         for idx, file in enumerate(files):
             file_path = os.path.join(student_dir, f"{idx+1}.jpg")
             with open(file_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
         
-        # Generator embeddings
         success, embed_message = generate_embeddings_for_person(
             name, student_dir, staging_embeddings_dir
         )
         if not success:
             raise HTTPException(status_code=400, detail=embed_message)
         
-        # Uploads
         cloud_staged = False
         try:
             upload_student_images(student_dir, name, version=version)
@@ -275,8 +266,6 @@ async def register_student(
             logger.warning(f"⚠️ Cloud upload warning: {e}")
             delete_staged_storage_data(version)
 
-        # Do not touch the active enrollment until the new photos and
-        # embedding have been validated and staged successfully.
         activate_registration(
             student_dir,
             staged_embedding_path,
@@ -318,9 +307,7 @@ def list_students():
     try:
         students = get_all_students_from_metadata()
         
-        # Migration logic if needed
         if not students and os.path.exists(settings.EMBEDDINGS_DIR) and os.listdir(settings.EMBEDDINGS_DIR):
-             # Fallback
              students = get_all_students_from_storage()
              
         return {"students": students, "total": len(students)}
@@ -330,7 +317,6 @@ def list_students():
 @router.get("/students/with-attendance")
 def get_students_with_attendance(refresh: bool = False):
     """Get all students with their attendance percentage (last 15 days)."""
-    # Check cache
     cache_age = time.time() - cache.attendance["timestamp"]
     if not refresh and cache.attendance["data"] and cache_age < cache.attendance["ttl"]:
          return cache.attendance["data"]
@@ -338,7 +324,6 @@ def get_students_with_attendance(refresh: bool = False):
     try:
         students = get_all_students_from_metadata()
         if not students:
-             # Fallback
              students = get_all_students_from_storage()
         
         logs = get_attendance_logs(days=15)
@@ -376,14 +361,12 @@ async def delete_student(
     """Delete a student."""
     try:
         student_name = sanitize_student_name(student_name)
-        # Local cleanup
         student_dir = os.path.join(settings.KNOWN_FACES_DIR, student_name)
         if os.path.exists(student_dir): shutil.rmtree(student_dir)
         
         embedding_path = os.path.join(settings.EMBEDDINGS_DIR, f"{student_name}.npy")
         if os.path.exists(embedding_path): os.remove(embedding_path)
         
-        # Cloud cleanup
         delete_student_storage_data(student_name)
         delete_student_metadata(student_name)
         

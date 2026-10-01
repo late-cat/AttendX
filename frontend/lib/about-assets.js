@@ -1,8 +1,6 @@
 
-// Firebase Storage base URL for team photos
 const FIREBASE_TEAM_URL = 'https://storage.googleapis.com/attendx-572c8.firebasestorage.app/team_faces';
 
-// Team Members
 export const TEAM = [
     { name: 'Bapi Mondal', role: 'Lead', photo: `${FIREBASE_TEAM_URL}/bapi_mondal.jpg`, pos: 'center' },
 ];
@@ -22,7 +20,6 @@ export const TECH_STACK = [
     { name: 'Vercel', icon: 'vercel' },
 ];
 
-// SVG Icons for Tech Stack
 export const TechIcons = {
     nextjs: (
         <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor">

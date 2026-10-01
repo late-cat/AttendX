@@ -7,7 +7,6 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-# ==================== STUDENT IMAGES ====================
 
 def _storage_path(
     folder: str,
@@ -36,7 +35,6 @@ def upload_student_image(
         blob = bucket.blob(storage_path)
         blob.upload_from_filename(local_path)
         logger.info(f"✅ Uploaded: {storage_path}")
-        # Return an internal object path, never a public URL.
         return storage_path
     except Exception as e:
         logger.error(f"❌ Failed to upload {local_path}: {e}")
@@ -65,7 +63,6 @@ def upload_student_images(
     logger.info(f"✅ Uploaded {len(storage_paths)} images for {student_name} to {folder}")
     return storage_paths
 
-# ==================== EMBEDDINGS ====================
 
 def upload_embedding(
     student_name: str,
@@ -76,10 +73,6 @@ def upload_embedding(
     """Upload a student/teacher embedding to Firebase Storage"""
     try:
         bucket = get_bucket()
-        # Keep embeddings at the long-standing ``{folder}/{name}.npy`` path.
-        # Images are grouped below a person directory, but the startup loader
-        # and deletion code both expect the embedding itself to be a direct
-        # child of its folder.
         if version:
             storage_path = f"_staging/{version}/{folder}/{student_name}.npy"
         else:
@@ -132,8 +125,6 @@ def promote_staged_storage_data(
         staged_embedding, bucket, f"{embeddings_folder}/{person_name}.npy"
     )
 
-    # Remove old image objects that are not part of the new version only
-    # after every staged object has been copied successfully.
     active_path_set = set(active_paths)
     for blob in bucket.list_blobs(prefix=active_image_prefix):
         if blob.name not in active_path_set:
@@ -182,11 +173,9 @@ def delete_student_storage_data(student_name: str, images_folder: str = "student
     """Delete images and embeddings for a student or teacher"""
     try:
         bucket = get_bucket()
-        # Delete images
         image_blobs = bucket.list_blobs(prefix=f"{images_folder}/{student_name}/")
         for blob in image_blobs: blob.delete()
         
-        # Delete embedding
         embedding_blob = bucket.blob(f"{embeddings_folder}/{student_name}.npy")
         if embedding_blob.exists(): embedding_blob.delete()
         
@@ -200,11 +189,8 @@ def get_all_students_from_storage() -> list:
     try:
         bucket = get_bucket()
         blobs = bucket.list_blobs(prefix="students/", delimiter="/")
-        # Note: prefixes are 'folders'
         count = 0
         students = []
-        # Blob listing with delimiter is tricky in python client, usually returns prefixes in separate property
-        # Simpler approach: List embeddings provided they mirror students
         blobs = bucket.list_blobs(prefix="embeddings/")
         for blob in blobs:
             name = os.path.basename(blob.name).replace('.npy', '')

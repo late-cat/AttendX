@@ -14,7 +14,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Global bucket reference
 _bucket = None
 
 def initialize_firebase():
@@ -25,23 +24,19 @@ def initialize_firebase():
         return _bucket
     
     try:
-        # Local service account key path
         service_account_path = os.path.join(os.path.dirname(__file__), 'serviceAccountKey.json')
         
         if not os.path.exists(service_account_path):
             raise FileNotFoundError(f"Service account key not found at {service_account_path}")
         
-        # Initialize Firebase Admin
         cred = credentials.Certificate(service_account_path)
         
-        # Security: Load bucket from environment variable
         FIREBASE_BUCKET = os.environ.get("FIREBASE_STORAGE_BUCKET", "attendx-572c8.firebasestorage.app")
         
         firebase_admin.initialize_app(cred, {
             'storageBucket': FIREBASE_BUCKET
         })
         
-        # Get storage bucket
         _bucket = storage.bucket()
         logger.info("✅ Firebase Admin SDK initialized successfully")
         return _bucket
@@ -57,7 +52,6 @@ def get_bucket():
         _bucket = initialize_firebase()
     return _bucket
 
-# ==================== STUDENT IMAGES ====================
 
 def upload_student_image(local_path: str, student_name: str, image_index: int) -> str:
     """
@@ -74,13 +68,11 @@ def upload_student_image(local_path: str, student_name: str, image_index: int) -
     try:
         bucket = get_bucket()
         
-        # Storage path: students/{name}/{index}.jpg
         storage_path = f"students/{student_name}/{image_index}.jpg"
         
         blob = bucket.blob(storage_path)
         blob.upload_from_filename(local_path)
         
-        # Make publicly readable
         blob.make_public()
         
         logger.info(f"✅ Uploaded: {storage_path}")
@@ -103,7 +95,6 @@ def upload_student_images(student_dir: str, student_name: str) -> list[str]:
     """
     urls = []
     
-    # Find all image files
     image_files = sorted([
         f for f in os.listdir(student_dir) 
         if f.lower().endswith(('.jpg', '.jpeg', '.png'))
@@ -132,17 +123,14 @@ def download_student_images(student_name: str, local_dir: str) -> int:
         bucket = get_bucket()
         os.makedirs(local_dir, exist_ok=True)
         
-        # List all files for this student
         prefix = f"students/{student_name}/"
         blobs = bucket.list_blobs(prefix=prefix)
         
         count = 0
         for blob in blobs:
-            # Extract filename from path
             filename = os.path.basename(blob.name)
             local_path = os.path.join(local_dir, filename)
             
-            # Download
             blob.download_to_filename(local_path)
             count += 1
         
@@ -153,7 +141,6 @@ def download_student_images(student_name: str, local_dir: str) -> int:
         logger.error(f"❌ Failed to download images for {student_name}: {e}")
         raise
 
-# ==================== EMBEDDINGS (SMART CACHING) ====================
 
 def upload_embedding(student_name: str, local_embedding_path: str) -> str:
     """
@@ -169,7 +156,6 @@ def upload_embedding(student_name: str, local_embedding_path: str) -> str:
     try:
         bucket = get_bucket()
         
-        # Storage path: embeddings/{name}.npy
         storage_path = f"embeddings/{student_name}.npy"
         
         blob = bucket.blob(storage_path)
@@ -201,12 +187,10 @@ def download_embedding(student_name: str, local_dir: str) -> str:
         
         blob = bucket.blob(storage_path)
         
-        # Check if file exists
         if not blob.exists():
             logger.warning(f"⚠️ Embedding not found: {storage_path}")
             return None
         
-        # Download
         os.makedirs(local_dir, exist_ok=True)
         blob.download_to_filename(local_path)
         
@@ -231,20 +215,17 @@ def download_all_embeddings(local_dir: str) -> int:
         bucket = get_bucket()
         os.makedirs(local_dir, exist_ok=True)
         
-        # List all embedding files
         prefix = "embeddings/"
         blobs = bucket.list_blobs(prefix=prefix)
         
         count = 0
         for blob in blobs:
-            # Skip the folder itself
             if blob.name == prefix:
                 continue
                 
             filename = os.path.basename(blob.name)
             local_path = os.path.join(local_dir, filename)
             
-            # Download
             blob.download_to_filename(local_path)
             count += 1
         
@@ -281,7 +262,6 @@ def sync_embeddings_to_firebase(local_dir: str) -> int:
     logger.info(f"✅ Synced {count} embeddings to Firebase")
     return count
 
-# ==================== UTILITY FUNCTIONS ====================
 
 def delete_student_data(student_name: str):
     """
@@ -293,13 +273,11 @@ def delete_student_data(student_name: str):
     try:
         bucket = get_bucket()
         
-        # Delete images
         image_prefix = f"students/{student_name}/"
         image_blobs = bucket.list_blobs(prefix=image_prefix)
         for blob in image_blobs:
             blob.delete()
         
-        # Delete embedding
         embedding_path = f"embeddings/{student_name}.npy"
         embedding_blob = bucket.blob(embedding_path)
         if embedding_blob.exists():
@@ -321,7 +299,6 @@ def get_storage_usage() -> dict:
     try:
         bucket = get_bucket()
         
-        # Count files
         student_count = len(list(bucket.list_blobs(prefix="students/")))
         embedding_count = len(list(bucket.list_blobs(prefix="embeddings/")))
         

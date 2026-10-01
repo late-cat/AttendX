@@ -6,7 +6,6 @@ Run this once to store team faces in Firebase
 import os
 import sys
 
-# Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.firebase_admin import get_bucket
@@ -27,7 +26,6 @@ def upload_team_photos():
     """Upload team photos to Firebase Storage under team_faces/ folder"""
     bucket = get_bucket()
     
-    # Path to team_face folder
     team_face_dir = os.path.join(os.path.dirname(__file__), '..', 'data', 'team_face')
     
     uploaded = []
@@ -39,7 +37,6 @@ def upload_team_photos():
             logger.warning(f"⚠️ File not found: {local_path}")
             continue
         
-        # Upload to team_faces/ folder in Firebase
         storage_path = f"team_faces/{storage_name}"
         blob = bucket.blob(storage_path)
         blob.upload_from_filename(local_path)

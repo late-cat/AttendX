@@ -3,7 +3,6 @@ import numpy as np
 from deepface import DeepFace
 from vision.face_quality import assess_face_quality
 
-# Configuration
 MODEL_NAME = "ArcFace"
 DETECTOR_BACKEND = "retinaface"
 
@@ -42,10 +41,8 @@ def generate_embeddings_for_person(person_name, images_dir, embeddings_dir):
             if not embedding_objs:
                 skipped_files.append(image_file)
             elif len(embedding_objs) > 1:
-                # Multiple faces detected - skip this image
                 multi_face_files.append(image_file)
             else:
-                # Single face - use it
                 face_obj = embedding_objs[0]
                 quality = assess_face_quality(image_path, face_obj)
                 if not quality.get("passed"):
@@ -58,22 +55,18 @@ def generate_embeddings_for_person(person_name, images_dir, embeddings_dir):
             print(f"Warning: Could not process {image_file}. Error: {e}")
             skipped_files.append(image_file)
     
-    # Check if any images had multiple faces
     if multi_face_files and not person_embeddings:
         return False, "Photos contain multiple faces. Please upload clean single-face photos."
     
     if person_embeddings:
-        # Average embeddings
         avg_embedding = np.mean(person_embeddings, axis=0)
         
-        # Save to .npy file
         if not os.path.exists(embeddings_dir):
             os.makedirs(embeddings_dir)
             
         save_path = os.path.join(embeddings_dir, f"{person_name}.npy")
         np.save(save_path, avg_embedding)
         
-        # Build success message
         msg = f"Registered with {len(person_embeddings)} valid photo(s)"
         if multi_face_files:
             msg += f". Skipped {len(multi_face_files)} photo(s) with multiple faces"

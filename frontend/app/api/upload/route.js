@@ -15,12 +15,8 @@ export async function POST(request) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const filename = Date.now() + "_" + file.name.replaceAll(" ", "_");
 
-        // Resolve path: Dashboard is in /dashboard/
-        // We want to go up one level to root, then into data/remote_uploads
-        // process.cwd() should be .../dashboard
         const uploadDir = path.join(process.cwd(), '../data/remote_uploads');
 
-        // Ensure directory exists
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }

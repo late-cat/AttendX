@@ -1,6 +1,4 @@
 
-# Simple in-memory cache
-# NOTE: This only works with a single worker process!
 
 class InMemoryCache:
     def __init__(self):

@@ -1,7 +1,6 @@
 import sys
 import os
 
-# Add the backend directory to python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from config.firebase_admin import get_firestore_db, initialize_firebase

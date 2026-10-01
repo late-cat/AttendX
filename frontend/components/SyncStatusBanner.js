@@ -1,6 +1,5 @@
 'use client';
 
-// Inline SVG icons to match the rest of the codebase
 const CheckIcon = () => (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="20 6 9 17 4 12" />
@@ -23,14 +22,6 @@ const AlertIcon = () => (
     </svg>
 );
 
-/**
- * SyncStatusBanner - Shows real-time sync status for attendance data
- * 
- * States:
- * - 'synced': Data is up to date (green indicator)
- * - 'syncing': Currently fetching new data (yellow, animated)
- * - 'new-updates': New updates available, click to refresh (blue with button)
- */
 export default function SyncStatusBanner({ status, onRefresh }) {
     if (status === 'synced') {
         return null;
@@ -62,7 +53,6 @@ export default function SyncStatusBanner({ status, onRefresh }) {
         );
     }
 
-    // Default/offline state
     return (
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold
       bg-slate-50 border border-slate-200 text-slate-500 shadow-sm">

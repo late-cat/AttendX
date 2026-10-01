@@ -5,7 +5,6 @@ import Webcam from 'react-webcam';
 import { CameraIcon, CheckIcon, RefreshIcon, CloseIcon } from '@/lib/icons';
 import { createBlinkTracker } from '@/lib/edge-blink';
 
-// Adding a simple Flip Camera SVG icon inline
 const FlipCameraIcon = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 2.1l4 4-4 4"/>
@@ -50,8 +49,6 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
     const capture = useCallback(async () => {
         if (!webcamRef.current) return;
 
-        // In teacher mode, manual capture does not submit immediately. It
-        // locks a reference frame and starts the blink-confirmation fallback.
         if (livenessMode) {
             const imageSrc = webcamRef.current.getScreenshot();
             if (!imageSrc) return;
@@ -101,9 +98,6 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
         setCameraError('');
     };
 
-    // Teacher liveness runs entirely on-device. No image is sent to the
-    // backend while the camera is open; only the final post-blink frame is
-    // submitted by the parent flow.
     useEffect(() => {
         if (!livenessMode) return undefined;
 
@@ -174,8 +168,7 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in p-2 sm:p-4">
             <div className="relative flex h-[calc(100dvh-1rem)] w-full max-w-7xl flex-col overflow-hidden rounded-[28px] border border-slate-200/60 bg-white/95 shadow-2xl backdrop-blur-xl sm:h-[calc(100dvh-2rem)] sm:rounded-[32px] sm:border-slate-200 sm:p-5">
-                
-                {/* Close button */}
+
                 <button
                     onClick={onClose}
                     aria-label="Close camera"
@@ -188,8 +181,7 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
                     <h2 className="m-0 text-xl font-bold text-slate-800 sm:text-2xl">{livenessMode ? 'Live Presence Verification' : 'Capture Live Photo'}</h2>
 
                     {!livenessMode && <p className="m-0 text-center text-sm font-semibold text-slate-500">Add up to 3 photos</p>}
-                    
-                    {/* Location Status Indicator */}
+
                     {locationStatus && (
                         <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm ${
                             locationStatus === 'verified' ? 'bg-emerald-50 border border-emerald-100 text-emerald-700' :
@@ -222,7 +214,7 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
                                 }}
                                 className="w-full h-full object-cover"
                             />
-                            {/* Keep the liveness guide, but let classroom captures use the whole preview. */}
+
                             <div className="pointer-events-none absolute inset-0">
                                 {livenessMode && <>
                                     <div className="absolute inset-x-[18%] bottom-[16%] top-[16%] rounded-[32%] border-2 border-dashed border-amber-300 shadow-[0_0_0_9999px_rgba(15,23,42,0.12)]" />
@@ -237,7 +229,6 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
                                         >
                                             {(() => {
                                                 if (!trackingState.eye_points || trackingState.eye_points.length === 0) return null;
-                                                // Focus specifically on one eye (left eye) like a native camera
                                                 const center = trackingState.eye_points[0];
                                                 
                                                 const cx = center.x * (trackingState.videoWidth || 1280);

@@ -4,8 +4,6 @@ import { getFirestore, doc, onSnapshot } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
 
-// Firebase configuration from environment variables
-// NEVER commit actual API keys to GitHub!
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -20,5 +18,4 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 
-// Re-export Firestore utilities for sync version listener
 export { doc, onSnapshot };

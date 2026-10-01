@@ -10,7 +10,6 @@ from config.firebase_admin import get_firestore_db, get_ist_now
 
 logger = logging.getLogger(__name__)
 
-# ==================== ATTENDANCE LOGS ====================
 
 def attendance_document_id(
     name: str,
@@ -53,9 +52,6 @@ def save_attendance_log(
             attendance_document_id(name, date, class_name=class_name, section=section, subject=subject)
         )
 
-        # Avoid duplicating records created by the pre-deterministic version
-        # of the service.  This read is only a compatibility guard; concurrent
-        # new writers are still serialized by the deterministic create below.
         if doc_ref.get().exists:
             return False
         legacy_query = db.collection('attendance_logs').where('name', '==', name).where('date', '==', date)
@@ -85,7 +81,6 @@ def save_attendance_log(
         doc_ref.create(payload)
         logger.info(f"✅ Saved attendance log: {name} on {date}")
         
-        # Occasional cleanup
         if random.random() < 0.05:
             cleanup_old_logs(days=15)
         return True
@@ -94,7 +89,6 @@ def save_attendance_log(
         return False
     except Exception as e:
         logger.error(f"❌ Failed to save log: {e}")
-        # Do not let callers mistake a database outage for a duplicate record.
         raise
 
 def get_attendance_logs(days: int = None) -> list:
@@ -133,8 +127,6 @@ def check_attendance_exists(
     """Check if attendance already exists for name and date"""
     try:
         db = get_firestore_db()
-        # New records have a direct, indexed lookup.  Keep the query fallback
-        # for records written by older versions that used random document IDs.
         deterministic_ref = db.collection('attendance_logs').document(
             attendance_document_id(name, date, class_name=class_name, section=section, subject=subject)
         )
@@ -216,9 +208,6 @@ def save_teacher_check_in(
             transaction.update(deterministic_ref, check_in_data)
             return True, None
 
-        # If an older random-ID record exists, update that record rather than
-        # creating a second attendance row.  Reading it in the transaction
-        # makes concurrent check-ins serialize correctly.
         legacy_to_update = None
         for legacy_ref in legacy_refs:
             legacy = legacy_ref.get(transaction=transaction)
@@ -351,7 +340,6 @@ def clear_today_attendance_firestore() -> int:
         logger.error(f"❌ Failed to clear today: {e}")
         return 0
 
-# ==================== METADATA & SYNC ====================
 
 def update_student_metadata(name: str, photo_count: int, class_name: str = "", section: str = "", roll_number: str = ""):
     try:
@@ -359,7 +347,6 @@ def update_student_metadata(name: str, photo_count: int, class_name: str = "", s
         doc_data = {
             'name': name, 'photo_count': photo_count, 'last_updated': firestore.SERVER_TIMESTAMP,
         }
-        # Only write class/section/roll if non-empty, to prevent overwriting existing values
         if class_name and class_name.strip():
             doc_data['class_name'] = class_name.strip()
         if section and section.strip():

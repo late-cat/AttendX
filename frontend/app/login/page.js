@@ -18,7 +18,7 @@ export default function LoginPage() {
 
     return (
         <div className="login-page-bg">
-            {/* Floating particles */}
+
             <div className="particles">
                 <div className="particle"></div>
                 <div className="particle"></div>

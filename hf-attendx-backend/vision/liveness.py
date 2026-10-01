@@ -22,7 +22,6 @@ except ImportError:  # pragma: no cover - exercised only on minimal installs
 MODEL_NAME = "ArcFace"
 DETECTOR_BACKEND = "retinaface"
 
-# MediaPipe Face Mesh eye landmarks.
 LEFT_EYE = (33, 160, 158, 133, 153, 144)
 RIGHT_EYE = (362, 385, 387, 263, 373, 380)
 _mesh = None
@@ -58,7 +57,6 @@ def _distance(first: Tuple[float, float], second: Tuple[float, float]) -> float:
 
 
 def _ear(points: List[Tuple[float, float]]) -> float:
-    # (vertical eye span 1 + vertical eye span 2) / (2 * horizontal span)
     horizontal = _distance(points[0], points[3])
     if horizontal <= 0:
         return 0.0
@@ -218,8 +216,6 @@ def assess_blink(image_paths: List[str]) -> Dict[str, Any]:
 
     scores = [state.get("ear") for state in states if state.get("eyes_visible") and state.get("ear") is not None]
     baseline = max(scores) if scores else 0.0
-    # Natural blink sensitivity: adaptive threshold, one closed frame is
-    # sufficient, and an open frame must exist on both sides.
     closed_threshold = max(0.105, min(0.22, baseline * 0.72)) if baseline else 0.0
     open_flags = [state.get("ear") is not None and state["ear"] > closed_threshold for state in states]
     closed_flags = [state.get("ear") is not None and state["ear"] <= closed_threshold for state in states]

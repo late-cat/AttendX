@@ -87,8 +87,6 @@ def assess_face_quality(image_path: str, face_obj: Dict[str, Any]) -> Dict[str, 
     if brightness < settings.MIN_FACE_BRIGHTNESS or brightness > settings.MAX_FACE_BRIGHTNESS:
         warnings.append("Lighting is outside the preferred range")
 
-    # Missing landmarks are reported as a warning. RetinaFace can still produce
-    # a useful embedding for a partially occluded or distant face.
     left_eye = _point(area.get("left_eye"))
     right_eye = _point(area.get("right_eye"))
     nose = _point(area.get("nose"))

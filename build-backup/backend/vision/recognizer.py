@@ -5,8 +5,6 @@ import pandas as pd
 import os
 import cv2
 
-# Configuration
-# Pointing to the root 'data' directory
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 EMBEDDINGS_DIR = os.path.join(ROOT_DIR, "data/embeddings")
 ATTENDANCE_FILE = os.path.join(ROOT_DIR, "data/attendance.csv")
@@ -15,7 +13,6 @@ MODEL_NAME = "ArcFace"
 DETECTOR_BACKEND = "retinaface"
 THRESHOLD = 0.50
 
-# Performance: Global embedding cache
 _cached_embeddings = None
 _cache_loaded = False
 
@@ -23,7 +20,6 @@ def load_embeddings(force_reload=False):
     """Load embeddings with caching for performance."""
     global _cached_embeddings, _cache_loaded
     
-    # Return cached if available and not forcing reload
     if _cache_loaded and not force_reload:
         return _cached_embeddings
     
@@ -62,7 +58,6 @@ def mark_attendance(name):
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H:%M:%S")
     
-    # check if file exists, if not create it
     if not os.path.exists(ATTENDANCE_FILE):
         df = pd.DataFrame(columns=["Name", "Date", "Time"])
         df.to_csv(ATTENDANCE_FILE, index=False)
@@ -72,7 +67,6 @@ def mark_attendance(name):
     except pd.errors.EmptyDataError:
         df = pd.DataFrame(columns=["Name", "Date", "Time"])
         
-    # Check if already marked for today
     already_marked = False
     if not df.empty:
         matches = df[(df["Name"] == name) & (df["Date"] == date_str)]
@@ -92,7 +86,6 @@ def recognize_face(image_path):
     known_embeddings = load_embeddings()
     
     try:
-        # Detect and represent faces
         faces = DeepFace.represent(
             img_path=image_path,
             model_name=MODEL_NAME,

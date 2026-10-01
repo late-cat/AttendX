@@ -15,7 +15,6 @@ import {
   TeacherIcon, LocationIcon
 } from '@/lib/icons';
 
-// Imported Components
 import StatCard from '@/components/StatCard';
 import CircularProgress from '@/components/CircularProgress';
 import SystemStatusCard from '@/components/SystemStatusCard';
@@ -26,9 +25,7 @@ import TeacherManagementTab from '@/components/TeacherManagementTab';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
 import AboutTab from '@/components/AboutTab';
 
-// --- SVG ICONS (Local mapping for convenience in TABS and Props) ---
 const Icons = {
-  // Sidebar icons
   home: <HomeIcon />,
   camera: <CameraIcon size="sm" />,
   calendar: <CalendarIcon size="sm" />,
@@ -38,12 +35,10 @@ const Icons = {
   location: <LocationIcon size="sm" />,
   settings: <SettingsIcon />,
   info: <InfoIcon />,
-  // Stat card icons
   usersLg: <UsersIcon size="lg" strokeColor="white" />,
   checkLg: <CheckCircleIcon />,
   monitorLg: <MonitorIcon />,
   bellLg: <BellIcon />,
-  // Action icons
   videoLg: <VideoIcon />,
   uploadLg: <UploadIcon />,
   calendarLg: <CalendarIcon size="md" />,
@@ -70,7 +65,6 @@ export default function Home() {
   const { user, loading, logout } = useAuth();
   const router = useRouter();
 
-  // State
   const [activeTab, setActiveTab] = useState('overview');
   const [sidebarOpen, setSidebarOpen] = useState(false); // Mobile sidebar toggle
   const [stats, setStats] = useState({ present: 0, total_students: 0, system_status: 'Checking...' });
@@ -84,18 +78,15 @@ export default function Home() {
   const [filterClass, setFilterClass] = useState('All');
   const [filterSection, setFilterSection] = useState('All');
 
-  // Cache state - tracks what data has been loaded and when
   const [cache, setCache] = useState({
     overview: { loaded: false, timestamp: null },
     logs: { loaded: false, filter: null, timestamp: null },
   });
   const CACHE_DURATION = 60 * 1000; // 60 seconds (was 30s)
 
-  // Sync state - for real-time updates across devices
   const [syncStatus, setSyncStatus] = useState('synced'); // 'synced' | 'syncing' | 'new-updates'
   const localVersionRef = useRef(0); // Track version without causing re-renders
 
-  // Upload/Live State
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const [showWebcam, setShowWebcam] = useState(false);
@@ -105,7 +96,6 @@ export default function Home() {
   const [locationStatus, setLocationStatus] = useState(null); // null, 'verifying', 'verified', 'error'
   const [locationMessage, setLocationMessage] = useState("");
 
-  // Contextual Attendance & Review State
   const [sessionClass, setSessionClass] = useState("");
   const [sessionSection, setSessionSection] = useState("");
   const [sessionSubject, setSessionSubject] = useState("");
@@ -114,7 +104,6 @@ export default function Home() {
   const [manualOverrides, setManualOverrides] = useState([]);
   const [allStudents, setAllStudents] = useState([]);
 
-  // URL Routing for Tabs
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -133,29 +122,24 @@ export default function Home() {
     setSidebarOpen(false);
   };
 
-  // Auth Guard
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  // Prevent background scrolling when mobile sidebar is open
   useEffect(() => {
     document.body.style.overflow = sidebarOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
 
-  // --- SYNC VERSION LISTENER (Real-time updates across devices) ---
   useEffect(() => {
     if (!user) return;
 
-    // Listen to the sync version document in Firestore
     const unsubscribe = onSnapshot(
       doc(db, 'metadata', 'sync'),
       (docSnap) => {
         if (docSnap.exists()) {
           const newVersion = docSnap.data()?.version || 0;
 
-          // If we have a previous version and it changed, show update banner
           if (localVersionRef.current > 0 && newVersion > localVersionRef.current) {
             console.log(`🔔 Sync version changed: ${localVersionRef.current} → ${newVersion}`);
             setSyncStatus('new-updates');
@@ -172,7 +156,6 @@ export default function Home() {
     return () => unsubscribe();
   }, [user]);
 
-  // --- CACHE HELPERS ---
   const isCacheValid = (cacheEntry) => {
     if (!cacheEntry?.loaded || !cacheEntry?.timestamp) return false;
     return Date.now() - cacheEntry.timestamp < CACHE_DURATION;
@@ -185,12 +168,10 @@ export default function Home() {
     });
   };
 
-  // Handle manual refresh (when user clicks "New updates available")
   const handleSyncRefresh = async () => {
     setSyncStatus('syncing');
     invalidateCache();
 
-    // Refresh data based on current tab
     switch (activeTab) {
       case 'overview':
       case 'today':
@@ -200,27 +181,22 @@ export default function Home() {
         await fetchLogsData(logsFilter, true);
         break;
       default:
-        // For other tabs, just refresh overview (affects stats)
         await fetchOverviewData(true);
     }
 
     setSyncStatus('synced');
   };
 
-  // --- DATA FETCHING (Lazy Loading) ---
   const fetchOverviewData = async (force = false) => {
-    // Skip if cache is valid and not forcing refresh
     if (!force && isCacheValid(cache.overview)) {
       console.log('📦 Using cached overview data');
       return;
     }
 
     try {
-      // System status
       const resStatus = await fetch(`${API_BASE_URL}/system/status`);
       setStats(prev => ({ ...prev, system_status: resStatus.ok ? 'Online' : 'Offline' }));
 
-      // Stats (student count)
       if (resStatus.ok) {
         const resStats = await fetch(`${API_BASE_URL}/stats`);
         if (resStats.ok) {
@@ -229,20 +205,17 @@ export default function Home() {
         }
       }
 
-      // Today's student attendance
       const resToday = await fetch(`${API_BASE_URL}/attendance/today`);
       const dataToday = await resToday.json();
       setTodayLogs(dataToday.logs || []);
       setStats(prev => ({ ...prev, present: dataToday.stats?.present || 0 }));
 
-      // Today's teacher attendance
       const resTeacherToday = await fetch(`${API_BASE_URL}/attendance/teacher/today`);
       if (resTeacherToday.ok) {
         const dataTeacherToday = await resTeacherToday.json();
         setTeacherTodayLogs(dataTeacherToday.logs || []);
       }
 
-      // Update cache
       setCache(prev => ({ ...prev, overview: { loaded: true, timestamp: Date.now() } }));
     } catch (e) {
       console.error("Overview fetch error:", e);
@@ -251,7 +224,6 @@ export default function Home() {
   };
 
   const fetchLogsData = async (filter, force = false) => {
-    // Skip if cache is valid for this filter and not forcing refresh
     if (!force && cache.logs.loaded && cache.logs.filter === filter && isCacheValid(cache.logs)) {
       console.log(`📦 Using cached logs for filter: ${filter}`);
       return;
@@ -260,9 +232,7 @@ export default function Home() {
     try {
       let url = `${API_BASE_URL}/attendance/logs`;
 
-      // Build query based on filter - backend handles the filtering!
       if (filter === 'today') {
-        // Use local date (IST), not UTC - toISOString() returns UTC which is wrong at midnight IST
         const now = new Date();
         const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         url += `?date=${today}`;
@@ -282,33 +252,26 @@ export default function Home() {
         setTeacherAllLogs(tData.logs || []);
       }
 
-      // Update cache
       setCache(prev => ({ ...prev, logs: { loaded: true, filter, timestamp: Date.now() } }));
     } catch (e) {
       console.error("Logs fetch error:", e);
     }
   };
 
-  // --- TAB-SPECIFIC DATA LOADING ---
   useEffect(() => {
     if (loading || !user) return;
 
-    // Load data based on which tab is active
     switch (activeTab) {
       case 'overview':
       case 'today':
-        // Both tabs share today's data
         fetchOverviewData();
         break;
       case 'logs':
-        // Fetch logs based on current filter
         fetchLogsData(logsFilter);
         break;
-      // 'live', 'students', 'settings' don't need data from here
     }
   }, [activeTab, loading, user]);
 
-  // Fetch all students for contextual attendance
   useEffect(() => {
     if (!loading && user) {
       fetch(`${API_BASE_URL}/students`).then(res => res.json()).then(data => {
@@ -317,7 +280,6 @@ export default function Home() {
     }
   }, [loading, user]);
 
-  // Re-fetch logs when filter changes (only if on logs tab)
   useEffect(() => {
     if (activeTab === 'logs' && !loading && user) {
       fetchLogsData(logsFilter);
@@ -325,7 +287,6 @@ export default function Home() {
   }, [logsFilter]);
 
 
-  // --- HANDLERS ---
   const handleFileUpload = async (event) => {
     const files = Array.from(event.target.files || [])
       .filter(file => file.type.startsWith('image/'))
@@ -340,7 +301,6 @@ export default function Home() {
     })));
     setImagePreview(previews);
     processImage(files);
-    // Permit selecting the same files again after a retake.
     event.target.value = '';
   };
 
@@ -353,7 +313,6 @@ export default function Home() {
     if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                // In a real app, calculate distance to school coords here
                 setLocationStatus('verified');
                 setLocationMessage("Location Verified");
             },
@@ -375,15 +334,12 @@ export default function Home() {
     const files = blobs.map((item, index) => new File([item], `classroom-${index + 1}.jpg`, { type: "image/jpeg" }));
 
     if (captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout') {
-       // Teacher liveness submits a frame sequence, but retains the existing
-       // single reference preview behavior.
        const previewFile = files[files.length - 1];
        const reader = new FileReader();
        reader.onloadend = () => setImagePreview([reader.result]);
        reader.readAsDataURL(previewFile);
        processTeacherCheckIn(blob, captureMode, livenessMetadata);
     } else {
-       // Show all queued classroom captures in the station preview.
        Promise.all(files.map(file => new Promise((resolve, reject) => {
          const reader = new FileReader();
          reader.onloadend = () => resolve(reader.result);
@@ -425,9 +381,6 @@ export default function Home() {
         const classStudents = allStudents.filter(s => s.class_name == sessionClass && s.section == sessionSection);
         const classStudentNames = classStudents.map(s => s.name);
         
-        // Only students belonging to the active class count as recognized for
-        // this verification pass. Unknown, rejected, and cross-class faces do
-        // not contribute to the final attendance list.
         const validDetectedFaces = detectedFaces.filter(f =>
           ['detected', 'present', 'marked'].includes(f.status) && classStudentNames.includes(f.name)
         );
@@ -511,7 +464,6 @@ export default function Home() {
            setImagePreview(null);
            setManualOverrides([]);
            
-           // Invalidate cache and refresh
            invalidateCache();
            localVersionRef.current += 1;
            setSyncStatus('syncing');
@@ -568,7 +520,6 @@ export default function Home() {
       if (res.ok) {
         const data = await res.json();
         alert(`Success: ${data.message}`);
-        // Invalidate cache and refresh after clearing
         invalidateCache();
         fetchOverviewData(true);
       } else {
@@ -579,7 +530,6 @@ export default function Home() {
     }
   };
 
-  // Enrich logs: fill missing Class/Section from student metadata
   const enrichLog = (log) => {
     if ((!log.Class || log.Class === '') && log.Name) {
       const student = allStudents.find(s => s.name === log.Name);
@@ -590,7 +540,6 @@ export default function Home() {
     return log;
   };
 
-  // Filter logs - date filtering is now done by backend, only search filtering here
   const getFilteredLogs = () => {
     if (logsViewType === 'teachers') {
       let logs = [...teacherAllLogs];
@@ -645,7 +594,6 @@ export default function Home() {
            try {
               setUploadStatus("Verifying identity & location...");
               
-              // Map actionType ('teacher_checkin', 'teacher_checkout') to endpoint URL
               const endpointAction = actionType === 'teacher_checkout' ? 'check-out' : 'check-in';
               
               const res = await fetch(`${API_BASE_URL}/attendance/teacher/${endpointAction}`, {
@@ -691,7 +639,6 @@ export default function Home() {
 
   if (loading || !user) return null;
 
-  // --- RENDER CONTENT BASED ON TAB ---
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -760,7 +707,7 @@ export default function Home() {
                   </div>
                  
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-                    {/* Detected Students Column */}
+
                     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                        <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-5">
                           <div className="p-2 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
@@ -782,8 +729,7 @@ export default function Home() {
                           )}
                        </div>
                     </div>
-                    
-                    {/* Missing Students Column */}
+
                     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
                        <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-5">
                           <div className="p-2 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center">
@@ -999,7 +945,7 @@ export default function Home() {
               </div>
               
               <div className="flex flex-wrap gap-2 items-center">
-                 {/* Toggle View */}
+
                  <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
                     <button 
                        onClick={() => setLogsViewType('students')} 
@@ -1015,7 +961,6 @@ export default function Home() {
                     </button>
                  </div>
 
-                 {/* Filters (Students Only) */}
                  {logsViewType === 'students' && (
                      <>
                         <div className="relative">
@@ -1068,7 +1013,7 @@ export default function Home() {
                 <h2 className="m-0">Attendance Logs</h2>
               </div>
               <div className="flex flex-wrap gap-3 items-center w-full sm:w-auto">
-                 {/* Toggle View */}
+
                  <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm">
                     <button 
                        onClick={() => setLogsViewType('students')} 
@@ -1083,8 +1028,7 @@ export default function Home() {
                        Teachers
                     </button>
                  </div>
-                 
-                {/* Filter Dropdown Date */}
+
                 <div className="relative">
                   <select
                     value={logsFilter}
@@ -1100,7 +1044,6 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Filter Dropdowns (Students Only) */}
                 {logsViewType === 'students' && (
                     <>
                        <div className="relative">
@@ -1133,7 +1076,6 @@ export default function Home() {
                     </>
                 )}
 
-                {/* Search Input */}
                 <div className="relative flex-1 sm:flex-none">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400">
@@ -1177,7 +1119,6 @@ export default function Home() {
     >
       {showWebcam && <WebcamCapture onCapture={handleWebcamCapture} onClose={() => setShowWebcam(false)} livenessMode={captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout'} livenessAction={captureMode === 'teacher_checkout' ? 'check out' : 'check in'} locationStatus={(captureMode === 'teacher_checkin' || captureMode === 'teacher_checkout') ? locationStatus : null} locationMessage={locationMessage} />}
 
-      {/* MOBILE HEADER - Glass Style */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-20 p-4 flex justify-between items-center bg-[var(--color-cotton-lavender)] border-b border-slate-300/30 shadow-sm">
         <div className="flex items-center gap-2">
           <img src="/attendx_logo.png" alt="AttendX" className="w-8 h-8 rounded-lg object-contain" />
@@ -1191,7 +1132,6 @@ export default function Home() {
         </button>
       </div>
 
-      {/* MOBILE OVERLAY */}
       {sidebarOpen && (
         <div
           className="md:hidden fixed inset-0 bg-black/50 z-20"
@@ -1199,7 +1139,6 @@ export default function Home() {
         />
       )}
 
-      {/* SIDEBAR - Soft Veil Navigation */}
       <aside className={`
         w-64 fixed h-full z-30 flex flex-col
         bg-[var(--color-cotton-lavender)] sidebar-paper
@@ -1253,9 +1192,8 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
       <div className="relative flex-1 overflow-y-auto px-3 pb-8 pt-24 sm:px-5 md:ml-64 md:px-8 md:pt-8 xl:px-10">
-        {/* Top Header - Welcome only on Overview */}
+
         <header className="mb-4 flex flex-col items-start gap-1 md:mb-8 md:flex-row md:items-end md:justify-between px-1">
           <div>
             <h2 className="text-2xl font-bold text-slate-700 m-0">{TABS.find(t => t.id === activeTab)?.label}</h2>
@@ -1263,7 +1201,7 @@ export default function Home() {
               <p className="text-sm md:text-base font-medium text-slate-500 mt-1">Welcome back, Administrator.</p>
             )}
           </div>
-          {/* Sync Status Banner - Only on Overview where aggregated data matters */}
+
           {activeTab === 'overview' && (
             <SyncStatusBanner status={syncStatus} onRefresh={handleSyncRefresh} />
           )}

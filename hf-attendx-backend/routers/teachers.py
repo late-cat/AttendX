@@ -107,8 +107,6 @@ async def register_teacher(
             logger.warning(f"⚠️ Cloud upload warning: {e}")
             delete_staged_storage_data(version)
 
-        # Replace the active enrollment only after the new registration has
-        # produced a valid embedding and its staged files are complete.
         activate_registration(
             teacher_dir,
             staged_embedding_path,

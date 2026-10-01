@@ -2,7 +2,6 @@ import os
 import numpy as np
 from deepface import DeepFace
 
-# Configuration
 MODEL_NAME = "ArcFace"
 DETECTOR_BACKEND = "retinaface"
 
@@ -44,10 +43,8 @@ def generate_embeddings_for_person(person_name, images_dir, embeddings_dir):
             print(f"Warning: Could not process {image_file}. Error: {e}")
     
     if person_embeddings:
-        # Average embeddings
         avg_embedding = np.mean(person_embeddings, axis=0)
         
-        # Save to .npy file
         if not os.path.exists(embeddings_dir):
             os.makedirs(embeddings_dir)
             

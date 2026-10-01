@@ -1,5 +1,4 @@
 
-# TensorFlow environment configuration (MUST be before TensorFlow import)
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
@@ -12,7 +11,6 @@ from slowapi.errors import RateLimitExceeded
 import logging
 import sys
 
-# Fix imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
@@ -23,20 +21,16 @@ from config.firebase_admin import initialize_firebase
 from services.firebase_storage import download_all_embeddings
 from routers import general, attendance, students, teachers
 
-# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
 
-# Add rate limit error handler
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -45,7 +39,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Startup
 @app.on_event("startup")
 async def startup_event():
     """Initialize Firebase and download embeddings on startup"""
@@ -54,7 +47,6 @@ async def startup_event():
         initialize_firebase()
         logger.info("✅ Firebase initialized")
         
-        # Student Embeddings
         os.makedirs(settings.EMBEDDINGS_DIR, exist_ok=True)
         local_embeddings = [f for f in os.listdir(settings.EMBEDDINGS_DIR) if f.endswith('.npy')]
         if len(local_embeddings) == 0:
@@ -62,7 +54,6 @@ async def startup_event():
             count = download_all_embeddings(settings.EMBEDDINGS_DIR, prefix="embeddings/")
             logger.info(f"✅ Downloaded {count} student embeddings")
 
-        # Teacher Embeddings
         os.makedirs(settings.TEACHER_EMBEDDINGS_DIR, exist_ok=True)
         local_t_embeddings = [f for f in os.listdir(settings.TEACHER_EMBEDDINGS_DIR) if f.endswith('.npy')]
         if len(local_t_embeddings) == 0:
@@ -73,7 +64,6 @@ async def startup_event():
     except Exception as e:
         logger.error(f"⚠️ Startup warning: {e}")
 
-# Include Routers
 app.include_router(general.router)
 app.include_router(attendance.router)
 app.include_router(students.router)

@@ -108,8 +108,6 @@ def aggregate_recognition_results(
             if _distance_value(raw_result.get("distance")) < _distance_value(
                 aggregate.get("distance")
             ):
-                # Keep the best recognition's distance, status, message,
-                # matches, and quality fields as the canonical UI result.
                 best_fields = dict(raw_result)
                 aggregate.update(best_fields)
                 aggregate.update(

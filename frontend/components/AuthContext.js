@@ -12,7 +12,6 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        // Check for redirect result on page load
         getRedirectResult(auth)
             .then((result) => {
                 if (result && result.user) {
@@ -26,9 +25,6 @@ export const AuthProvider = ({ children }) => {
 
         const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
             if (currentUser) {
-                // Optional: Check strict allowlist here if needed
-                // const userDoc = await getDoc(doc(db, 'authorized_users', currentUser.email));
-                // if (userDoc.exists()) { setUser(currentUser); } else { await signOut(auth); }
                 setUser(currentUser);
             } else {
                 setUser(null);
@@ -40,10 +36,8 @@ export const AuthProvider = ({ children }) => {
 
     const login = async () => {
         const provider = new GoogleAuthProvider();
-        // Force account selection every time (don't auto-select last used account)
         provider.setCustomParameters({ prompt: 'select_account' });
         try {
-            // Use popup for custom domains (ngrok, etc.) - redirect doesn't work well
             const { signInWithPopup } = await import('firebase/auth');
             await signInWithPopup(auth, provider);
         } catch (e) {

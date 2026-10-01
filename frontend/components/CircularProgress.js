@@ -17,7 +17,7 @@ export default function CircularProgress({ percentage, label }) {
 
             <div className="relative z-10 w-[100px] h-[100px]">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                    {/* Engraved Background circle */}
+
                     <circle
                         cx="50" cy="50" r={radius}
                         fill="none"
@@ -25,7 +25,7 @@ export default function CircularProgress({ percentage, label }) {
                         stroke="#f1f5f9"
                         filter="url(#innerShadow)"
                     />
-                    {/* Progress circle */}
+
                     <circle
                         cx="50" cy="50" r={radius}
                         fill="none"

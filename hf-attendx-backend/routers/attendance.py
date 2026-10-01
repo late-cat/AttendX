@@ -28,7 +28,6 @@ def get_logs(date: str = None, days: int = None, refresh: bool = False):
     """
     cache_key = f"date_{date}" if date else f"days_{days or 7}"
     
-    # Check cache
     if not refresh:
         cached_data = cache.logs["data"].get(cache_key)
         cached_time = cache.logs["timestamp"].get(cache_key, 0)
@@ -42,7 +41,6 @@ def get_logs(date: str = None, days: int = None, refresh: bool = False):
             query_days = min(days or 7, 15)
             logs = get_attendance_logs(days=query_days)
         
-        # Update cache
         cache.logs["data"][cache_key] = logs
         cache.logs["timestamp"][cache_key] = time.time()
         
@@ -143,9 +141,6 @@ def _decode_teacher_frames(request: "TeacherCheckInRequest"):
     from vision.recognizer import recognize_face
 
     encoded_frames = request.images or ([request.image] if request.image else [])
-    # The normal edge-computing flow sends only the final frame after the
-    # browser has detected an open->closed->open blink. Multi-frame callers
-    # still receive server-side blink validation for backwards compatibility.
     if len(encoded_frames) == 1 and (request.blink_detected or request.liveness_state == "manual_fallback"):
         temp_paths = _write_teacher_frames(encoded_frames, minimum_frames=1)
         try:
@@ -243,9 +238,6 @@ def finalize_attendance(request: FinalizeAttendanceRequest):
     duplicate_count = 0
     try:
         for record in request.records:
-            # The write itself is the duplicate check.  save_attendance_log
-            # uses a deterministic ID and Firestore create, so this remains
-            # safe when two finalize requests arrive concurrently.
             if save_attendance_log(
                 record.name,
                 date_str,
@@ -296,7 +288,6 @@ def teacher_check_in(request: TeacherCheckInRequest):
     date_str = now.strftime("%Y-%m-%d")
     
     try:
-        # Check if already checked in today
         success, detail = save_teacher_check_in(
             teacher_name,
             date_str,

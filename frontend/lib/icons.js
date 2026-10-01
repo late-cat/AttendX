@@ -1,11 +1,4 @@
-/**
- * Shared SVG Icons for AttendX Dashboard
- * Centralized icon definitions to avoid duplication
- */
 
-// ============================================
-// SIDEBAR ICONS (17px)
-// ============================================
 export const HomeIcon = () => (
     <svg viewBox="0 0 24 24" className="w-[17px] h-[17px] stroke-current fill-none" strokeWidth="1.5">
         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -84,9 +77,6 @@ export const LocationIcon = ({ size = 'sm' }) => {
     );
 };
 
-// ============================================
-// STAT CARD ICONS (25px, white stroke)
-// ============================================
 export const CheckCircleIcon = () => (
     <svg viewBox="0 0 24 24" className="w-[25px] h-[25px] stroke-white fill-none" strokeWidth="1.5">
         <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
@@ -117,9 +107,6 @@ export const BellIcon = () => (
     </svg>
 );
 
-// ============================================
-// ACTION ICONS (20px)
-// ============================================
 export const VideoIcon = () => (
     <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-current fill-none" strokeWidth="1.5">
         <polygon points="23 7 16 12 23 17 23 7" />
@@ -231,9 +218,6 @@ export const SearchIcon = () => (
     </svg>
 );
 
-// ============================================
-// RESULT/STATUS ICONS
-// ============================================
 export const SuccessIcon = () => (
     <svg viewBox="0 0 24 24" className="w-6 h-6 stroke-green-400 fill-none" strokeWidth="2">
         <polyline points="20 6 9 17 4 12" />

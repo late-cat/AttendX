@@ -13,9 +13,6 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
     if api_key_header == settings.API_KEY:
         return api_key_header
     
-    # Optional: Allow skipping auth for localhost if needed, 
-    # but for "production-ready" we should enforce it or check host headers.
-    # For now, strict check.
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="Could not validate credentials"
