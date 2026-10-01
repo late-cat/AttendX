@@ -48,11 +48,17 @@ if (typeof window !== 'undefined') {
     console.log = quiet(console.log);
 }
 
-function eyeAspectRatio(landmarks, indices) {
+function eyeAspectRatio(landmarks, indices, width = 1, height = 1) {
     const points = indices.map((index) => landmarks[index]).filter(Boolean);
     if (points.length !== 6) return null;
-    return (distance(points[1], points[5]) + distance(points[2], points[4])) /
-        (2 * Math.max(distance(points[0], points[3]), Number.EPSILON));
+    
+    // Scale normalized coordinates by video dimensions to get true pixel distance.
+    // This is critical for mobile devices where the video aspect ratio (e.g. 9:16)
+    // heavily skews normalized geometric distances.
+    const dist = (a, b) => Math.hypot((a.x - b.x) * width, (a.y - b.y) * height);
+    
+    return (dist(points[1], points[5]) + dist(points[2], points[4])) /
+        (2 * Math.max(dist(points[0], points[3]), Number.EPSILON));
 }
 
 function eyePosition(landmarks, indices) {
@@ -186,8 +192,8 @@ export function createBlinkTracker(options = {}) {
             const box = faceBox(landmarks);
             const leftEye = eyePosition(landmarks, LEFT_EYE);
             const rightEye = eyePosition(landmarks, RIGHT_EYE);
-            const leftEar = eyeAspectRatio(landmarks, LEFT_EYE);
-            const rightEar = eyeAspectRatio(landmarks, RIGHT_EYE);
+            const leftEar = eyeAspectRatio(landmarks, LEFT_EYE, video.videoWidth, video.videoHeight);
+            const rightEar = eyeAspectRatio(landmarks, RIGHT_EYE, video.videoWidth, video.videoHeight);
             const ear = leftEar !== null && rightEar !== null ? (leftEar + rightEar) / 2 : null;
             const eyePoints = [leftEye, rightEye].filter(Boolean);
             if (!box || box.w < config.minFaceWidth || !leftEye || !rightEye || ear === null) {
