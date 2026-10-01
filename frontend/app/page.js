@@ -361,7 +361,7 @@ export default function Home() {
                 setLocationStatus('error');
                 setLocationMessage(error.message || "Failed to verify location");
             },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
     } else {
         setLocationStatus('error');
@@ -678,7 +678,7 @@ export default function Home() {
            setIsUploading(false);
         }, {
            enableHighAccuracy: true,
-           timeout: 5000,
+           timeout: 15000,
            maximumAge: 0
         });
     };

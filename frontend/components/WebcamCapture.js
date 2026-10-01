@@ -172,8 +172,8 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
     }[livenessState] || `Blink to automatically ${livenessAction}.`;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in p-0 sm:p-4">
-            <div className="relative flex h-[100dvh] w-full max-w-7xl flex-col overflow-hidden rounded-none bg-white/95 shadow-[0_20px_60px_rgba(0,0,0,0.1)] backdrop-blur-xl sm:h-[calc(100dvh-2rem)] sm:rounded-[32px] sm:border sm:border-slate-200 sm:p-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm animate-in fade-in p-2 sm:p-4">
+            <div className="relative flex h-[calc(100dvh-1rem)] w-full max-w-7xl flex-col overflow-hidden rounded-[28px] border border-slate-200/60 bg-white/95 shadow-2xl backdrop-blur-xl sm:h-[calc(100dvh-2rem)] sm:rounded-[32px] sm:border-slate-200 sm:p-5">
                 
                 {/* Close button */}
                 <button
@@ -247,11 +247,11 @@ export default function WebcamCapture({ onCapture, onClose, locationStatus, loca
                                                         <circle 
                                                             cx={cx} 
                                                             cy={cy} 
-                                                            r="10" 
+                                                            r="6" 
                                                             fill="none" 
                                                             stroke="rgba(255, 255, 255, 0.95)" 
                                                             strokeWidth="1.5" 
-                                                            strokeDasharray="13.2 2.5" 
+                                                            strokeDasharray="4 3" 
                                                             className="drop-shadow-sm"
                                                         />
                                                     </g>
